@@ -50,20 +50,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   void _handleLogin() {
-    if (_loginFormKey.currentState!.validate()) {
+    if (_loginFormKey.currentState?.validate() ?? false) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đang xử lý đăng nhập...')),
+        const SnackBar(
+          content: Text('Đang xử lý đăng nhập...'),
+          duration: Duration(milliseconds: 800),
+        ),
       );
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainShellScreen()),
-      );
+      Navigator.pushReplacementNamed(context, '/main');
     }
   }
 
   void _handleRegister() {
-    if (_registerFormKey.currentState!.validate()) {
+    if (_registerFormKey.currentState?.validate() ?? false) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đăng ký tài khoản thành công!')),
       );

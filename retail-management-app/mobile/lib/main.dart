@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'home_screen.dart';
 import 'dash_board_screen.dart';
 import 'login_screen.dart';
 import 'schedule_screen.dart';
@@ -20,12 +21,15 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Roboto',
         primaryColor: AppColors.primaryOrange,
       ),
-      home: const LoginScreen(),
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/main': (context) => const MainShellScreen(),
+      },
     );
   }
 }
 
-// Màn hình vỏ chứa thanh BottomNavigationBar để chuyển đổi
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({Key? key}) : super(key: key);
 
@@ -34,12 +38,14 @@ class MainShellScreen extends StatefulWidget {
 }
 
 class _MainShellScreenState extends State<MainShellScreen> {
+  // Mặc định mở Tab 0 (Bảng Phân Ca) ngay khi đăng nhập
   int _currentIndex = 0;
 
-  // Danh sách 2 màn hình chính
+  // Thứ tự các màn hình tương ứng từ trái sang phải
   final List<Widget> _screens = const [
-    DashboardQRScreen(),
-    ScheduleScreen(),
+    ScheduleScreen(),    // Tab 0: Bảng Phân Ca (Màn hình đầu tiên)
+    DashboardQRScreen(), // Tab 1: Chấm Công / QR
+    HomeScreen(),        // Tab 2: Profile / Cá Nhân
   ];
 
   @override
@@ -53,6 +59,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
         currentIndex: _currentIndex,
         selectedItemColor: AppColors.primaryOrange,
         unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
         onTap: (index) {
           setState(() {
             _currentIndex = index;
@@ -60,12 +67,19 @@ class _MainShellScreenState extends State<MainShellScreen> {
         },
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.qr_code_scanner),
-            label: 'Điểm Danh QR',
+            icon: Icon(Icons.calendar_month_outlined),
+            activeIcon: Icon(Icons.calendar_month),
+            label: 'Phân Ca Làm',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_month),
-            label: 'Bảng Phân Ca',
+            icon: Icon(Icons.qr_code_scanner_outlined),
+            activeIcon: Icon(Icons.qr_code_scanner),
+            label: 'Chấm Công',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Cá Nhân',
           ),
         ],
       ),
