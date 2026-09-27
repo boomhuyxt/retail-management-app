@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'theme.dart';
 
 class ScheduleScreen extends StatefulWidget {
-  const ScheduleScreen({Key? key}) : super(key: key);
+  const ScheduleScreen({super.key});
 
   @override
   State<ScheduleScreen> createState() => _ScheduleScreenState();
@@ -53,16 +54,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: ['Sáng', 'Chiều', 'Đêm', 'OFF'].map((shift) {
-              return RadioListTile<String>(
+              final isSelected = selectedShift == shift;
+              return ListTile(
                 title: Text(shift),
-                value: shift,
-                groupValue: selectedShift,
-                onChanged: (val) {
-                  setState(() {
-                    selectedShift = val!;
-                  });
+                trailing: isSelected ? const Icon(Icons.check, color: AppColors.primaryOrange) : null,
+                onTap: () {
                   Navigator.pop(context);
-                  _updateShift(staffName, dayIndex, selectedShift);
+                  _updateShift(staffName, dayIndex, shift);
                 },
               );
             }).toList(),

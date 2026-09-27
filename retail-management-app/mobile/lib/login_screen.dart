@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'core/api_config.dart';
+import 'core/auth_service.dart';
 import 'theme.dart';
-import 'main.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -16,8 +17,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final _loginFormKey = GlobalKey<FormState>();
   final _registerFormKey = GlobalKey<FormState>();
 
-  final _loginUserCtrl = TextEditingController();
-  final _loginPassCtrl = TextEditingController();
+  final _loginEmailCtrl = TextEditingController(text: 'employee@retail365.com');
+  final _loginPassCtrl = TextEditingController(text: 'Password123!');
 
   final _regNameCtrl = TextEditingController();
   final _regEmailCtrl = TextEditingController();
@@ -29,17 +30,26 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _obscureLoginPass = true;
   bool _obscureRegPass = true;
   bool _obscureRegConfirmPass = true;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _checkSavedSession();
+  }
+
+  Future<void> _checkSavedSession() async {
+    final hasSession = await AuthService.restoreSession();
+    if (hasSession && mounted) {
+      Navigator.pushReplacementNamed(context, '/main');
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _loginUserCtrl.dispose();
+    _loginEmailCtrl.dispose();
     _loginPassCtrl.dispose();
     _regNameCtrl.dispose();
     _regEmailCtrl.dispose();
@@ -49,25 +59,116 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  void _handleLogin() {
-    if (_loginFormKey.currentState?.validate() ?? false) {
+  Future<void> _handleLogin() async {
+    if (!(_loginFormKey.currentState?.validate() ?? false)) return;
+
+    setState(() => _isLoading = true);
+
+    final result = await AuthService.login(
+      _loginEmailCtrl.text.trim(),
+      _loginPassCtrl.text,
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result.isSuccess) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đang xử lý đăng nhập...'),
-          duration: Duration(milliseconds: 800),
+        SnackBar(
+          content: Text('Xin chào, ${result.user?.displayName ?? "Nhân viên"}!'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
         ),
       );
-
       Navigator.pushReplacementNamed(context, '/main');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
-  void _handleRegister() {
-    if (_registerFormKey.currentState?.validate() ?? false) {
+  Future<void> _handleRegister() async {
+    if (!(_registerFormKey.currentState?.validate() ?? false)) return;
+
+    setState(() => _isLoading = true);
+
+    final result = await AuthService.register(
+      email: _regEmailCtrl.text.trim(),
+      password: _regPassCtrl.text,
+      displayName: _regNameCtrl.text.trim(),
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result.isSuccess) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đăng ký tài khoản thành công!')),
+        const SnackBar(
+          content: Text('Đăng ký thành công! Đang tự động đăng nhập...'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      Navigator.pushReplacementNamed(context, '/main');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 3),
+        ),
       );
     }
+  }
+
+  void _showServerConfigDialog() {
+    final urlController = TextEditingController(text: ApiConfig.baseUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cấu hình kết nối API Server', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Địa chỉ Backend ASP.NET Core:', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(
+                hintText: 'http://10.0.2.2:8080 hoặc http://localhost:8080',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryOrange),
+            onPressed: () {
+              setState(() {
+                ApiConfig.baseUrl = urlController.text.trim();
+              });
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Đã cập nhật Server URL: ${ApiConfig.baseUrl}')),
+              );
+            },
+            child: const Text('Lưu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -80,6 +181,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
             child: Column(
               children: [
+                // Server Config Icon on Top Right
+                Align(
+                  alignment: Alignment.topRight,
+                  child: IconButton(
+                    icon: const Icon(Icons.settings_outlined, color: Colors.grey, size: 20),
+                    tooltip: 'Cấu hình Server API',
+                    onPressed: _showServerConfigDialog,
+                  ),
+                ),
+
                 // Brand Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -117,21 +228,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 ),
                 const SizedBox(height: 24),
 
-                // Tab Switcher (Đã bỏ Container nền trắng bên ngoài)
-                // Tab Switcher - Đã bỏ nền xung quanh & gạch chân
+                // Tab Switcher
                 Container(
                   height: 48,
                   decoration: const BoxDecoration(
-                    color: Colors.transparent, // Bỏ nền kem nhạt bao quanh
+                    color: Colors.transparent,
                   ),
                   child: TabBar(
                     controller: _tabController,
-                    dividerColor: Colors.transparent, // Bỏ đường gạch chân xám ở dưới TabBar
+                    dividerColor: Colors.transparent,
                     indicatorSize: TabBarIndicatorSize.tab,
                     indicator: BoxDecoration(
-                      color: Colors.white, // Chi khi chọn tab mới có nền màu trắng
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFFE3D1)), // Viền nhạt xung quanh tab active
+                      border: Border.all(color: const Color(0xFFFFE3D1)),
                     ),
                     labelColor: AppColors.textDark,
                     unselectedLabelColor: Colors.grey,
@@ -190,19 +300,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Tên đăng nhập / Email *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const Text('Email đăng nhập *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
           const SizedBox(height: 6),
           TextFormField(
-            controller: _loginUserCtrl,
+            controller: _loginEmailCtrl,
+            keyboardType: TextInputType.emailAddress,
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
-                return 'Vui lòng nhập tên đăng nhập hoặc email';
+                return 'Vui lòng nhập email đăng nhập';
               }
               return null;
             },
             decoration: _inputDecoration(
-              hint: 'Nhập email hoặc tên đăng nhập...',
-              icon: Icons.person_outline,
+              hint: 'Nhập email nhân viên...',
+              icon: Icons.email_outlined,
             ),
           ),
           const SizedBox(height: 12),
@@ -228,7 +339,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
           const SizedBox(height: 4),
 
-          // SỬA LỖI OVERFLOW: Bọc phần Checkbox trong Expanded và dùng padding nhỏ hơn
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -272,15 +382,21 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 backgroundColor: AppColors.primaryOrange,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: _handleLogin,
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Đăng Nhập', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, color: Colors.black, size: 18),
-                ],
-              ),
+              onPressed: _isLoading ? null : _handleLogin,
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Đăng Nhập', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward, color: Colors.black, size: 18),
+                      ],
+                    ),
             ),
           ),
 
@@ -291,43 +407,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               Expanded(child: Divider(color: Color(0xFFDCD6D0))),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Text('Hoặc đăng nhập bằng', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                child: Text('Hệ thống Manage365 API', style: TextStyle(fontSize: 12, color: Colors.grey)),
               ),
               Expanded(child: Divider(color: Color(0xFFDCD6D0))),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Google & Facebook Social Buttons
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    side: const BorderSide(color: Color(0xFFE0E0E0)),
-                  ),
-                  onPressed: () {},
-                  icon: const FaIcon(FontAwesomeIcons.google, color: Colors.red, size: 18),
-                  label: const Text('Google', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    side: const BorderSide(color: Color(0xFFE0E0E0)),
-                  ),
-                  onPressed: () {},
-                  icon: const FaIcon(FontAwesomeIcons.facebook, color: Color(0xFF1877F2), size: 18),
-                  label: const Text('Facebook', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
-                ),
-              ),
             ],
           ),
         ],
@@ -359,7 +441,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
           const SizedBox(height: 12),
 
-          const Text('Email *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const Text('Email nhân viên *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
           const SizedBox(height: 6),
           TextFormField(
             controller: _regEmailCtrl,
@@ -381,27 +463,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
           const SizedBox(height: 12),
 
-          const Text('Số điện thoại *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: _regPhoneCtrl,
-            keyboardType: TextInputType.phone,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Số điện thoại không được để trống';
-              }
-              if (value.trim().length < 10) {
-                return 'Số điện thoại phải từ 10 chữ số';
-              }
-              return null;
-            },
-            decoration: _inputDecoration(
-              hint: 'Nhập số điện thoại...',
-              icon: Icons.phone_outlined,
-            ),
-          ),
-          const SizedBox(height: 12),
-
           const Text('Mật khẩu *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
           const SizedBox(height: 6),
           TextFormField(
@@ -411,8 +472,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               if (value == null || value.isEmpty) {
                 return 'Mật khẩu không được để trống';
               }
-              if (value.length < 6) {
-                return 'Mật khẩu phải từ 6 ký tự trở lên';
+              if (value.length < 8) {
+                return 'Mật khẩu phải từ 8 ký tự trở lên';
               }
               return null;
             },
@@ -460,8 +521,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 backgroundColor: AppColors.primaryOrange,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: _handleRegister,
-              child: const Text('Đăng Ký Tài Khoản', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
+              onPressed: _isLoading ? null : _handleRegister,
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                    )
+                  : const Text('Đăng Ký Tài Khoản', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
             ),
           ),
         ],
