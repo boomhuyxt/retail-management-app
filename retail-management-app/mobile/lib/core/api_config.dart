@@ -20,9 +20,13 @@ class ApiConfig {
   static String get loginUrl => '$baseUrl/api/auth/login';
   static String get registerUrl => '$baseUrl/api/auth/register';
   static String get meUrl => '$baseUrl/api/auth/me';
+  static String get forgotPasswordUrl => '$baseUrl/api/auth/forgot-password';
+  static String get verifyResetCodeUrl => '$baseUrl/api/auth/verify-reset-code';
+  static String get resetPasswordUrl => '$baseUrl/api/auth/reset-password';
 
   static String get checkInUrl => '$baseUrl/api/attendance-check-ins';
-  static String get attendanceRecordsMeUrl => '$baseUrl/api/attendance-records/me';
+  static String get attendanceRecordsMeUrl =>
+      '$baseUrl/api/attendance-records/me';
   static String get attendanceSessionsUrl => '$baseUrl/api/attendance-sessions';
 
   // Shift Attendance Endpoints

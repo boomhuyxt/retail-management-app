@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'dash_board_screen.dart';
 import 'login_screen.dart';
+import 'forgot_password_screen.dart';
 import 'schedule_screen.dart';
 import 'theme.dart';
 
@@ -24,6 +25,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/main': (context) => const MainShellScreen(),
       },
     );
@@ -43,18 +45,15 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   // Thứ tự các màn hình tương ứng từ trái sang phải
   final List<Widget> _screens = const [
-    ScheduleScreen(),    // Tab 0: Bảng Phân Ca (Màn hình đầu tiên)
+    ScheduleScreen(), // Tab 0: Bảng Phân Ca (Màn hình đầu tiên)
     DashboardQRScreen(), // Tab 1: Chấm Công / QR
-    HomeScreen(),        // Tab 2: Profile / Cá Nhân
+    HomeScreen(), // Tab 2: Profile / Cá Nhân
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         selectedItemColor: AppColors.primaryOrange,
