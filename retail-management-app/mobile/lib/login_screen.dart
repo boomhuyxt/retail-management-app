@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'core/api_config.dart';
 import 'core/auth_service.dart';
+import 'core/input_validators.dart';
 import 'theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -11,14 +12,15 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   final _loginFormKey = GlobalKey<FormState>();
   final _registerFormKey = GlobalKey<FormState>();
 
-  final _loginEmailCtrl = TextEditingController(text: 'employee@retail365.com');
-  final _loginPassCtrl = TextEditingController(text: 'Password123!');
+  final _loginEmailCtrl = TextEditingController();
+  final _loginPassCtrl = TextEditingController();
 
   final _regNameCtrl = TextEditingController();
   final _regEmailCtrl = TextEditingController();
@@ -75,7 +77,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     if (result.isSuccess) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Xin chào, ${result.user?.displayName ?? "Nhân viên"}!'),
+          content: Text(
+            'Xin chào, ${result.user?.displayName ?? "Nhân viên"}!',
+          ),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
@@ -131,19 +135,28 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cấu hình kết nối API Server', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Cấu hình kết nối API Server',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Địa chỉ Backend ASP.NET Core:', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            const Text(
+              'Địa chỉ Backend ASP.NET Core:',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
             const SizedBox(height: 8),
             TextField(
               controller: urlController,
               decoration: const InputDecoration(
-                hintText: 'http://10.0.2.2:8080 hoặc http://localhost:8080',
+                hintText: 'https://www.manage365.io.vn',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
             ),
           ],
@@ -154,17 +167,27 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             child: const Text('Hủy'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryOrange),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryOrange,
+            ),
             onPressed: () {
               setState(() {
                 ApiConfig.baseUrl = urlController.text.trim();
               });
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Đã cập nhật Server URL: ${ApiConfig.baseUrl}')),
+                SnackBar(
+                  content: Text('Đã cập nhật Server URL: ${ApiConfig.baseUrl}'),
+                ),
               );
             },
-            child: const Text('Lưu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Lưu',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -178,14 +201,21 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20.0,
+              vertical: 16.0,
+            ),
             child: Column(
               children: [
                 // Server Config Icon on Top Right
                 Align(
                   alignment: Alignment.topRight,
                   child: IconButton(
-                    icon: const Icon(Icons.settings_outlined, color: Colors.grey, size: 20),
+                    icon: const Icon(
+                      Icons.settings_outlined,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
                     tooltip: 'Cấu hình Server API',
                     onPressed: _showServerConfigDialog,
                   ),
@@ -201,7 +231,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         color: AppColors.primaryOrange,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const FaIcon(FontAwesomeIcons.store, color: Colors.white, size: 24),
+                      child: const FaIcon(
+                        FontAwesomeIcons.store,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Column(
@@ -209,21 +243,40 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       children: [
                         Row(
                           children: [
-                            const Text('Retail365', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                            const Text(
+                              'Retail365',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textDark,
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.amber,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text('HR Management', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                            )
+                              child: const Text(
+                                'HR Management',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
-                        const Text('QUẢN TRỊ & CHẤM CÔNG CỬA HÀNG', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                        const Text(
+                          'QUẢN TRỊ & CHẤM CÔNG CỬA HÀNG',
+                          style: TextStyle(fontSize: 10, color: Colors.grey),
+                        ),
                       ],
-                    )
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -231,9 +284,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 // Tab Switcher
                 Container(
                   height: 48,
-                  decoration: const BoxDecoration(
-                    color: Colors.transparent,
-                  ),
+                  decoration: const BoxDecoration(color: Colors.transparent),
                   child: TabBar(
                     controller: _tabController,
                     dividerColor: Colors.transparent,
@@ -245,13 +296,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ),
                     labelColor: AppColors.textDark,
                     unselectedLabelColor: Colors.grey,
-                    labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    labelStyle: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                     tabs: const [
                       Tab(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            FaIcon(FontAwesomeIcons.rightToBracket, size: 14, color: AppColors.primaryOrange),
+                            FaIcon(
+                              FontAwesomeIcons.rightToBracket,
+                              size: 14,
+                              color: AppColors.primaryOrange,
+                            ),
                             SizedBox(width: 6),
                             Text('Đăng Nhập'),
                           ],
@@ -278,10 +336,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   builder: (context, child) {
                     return IndexedStack(
                       index: _tabController.index,
-                      children: [
-                        _buildLoginForm(),
-                        _buildRegisterForm(),
-                      ],
+                      children: [_buildLoginForm(), _buildRegisterForm()],
                     );
                   },
                 ),
@@ -300,24 +355,36 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Email đăng nhập *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const Text(
+            'Email đăng nhập *',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
           const SizedBox(height: 6),
           TextFormField(
             controller: _loginEmailCtrl,
             keyboardType: TextInputType.emailAddress,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Vui lòng nhập email đăng nhập';
-              }
-              return null;
-            },
+            validator: (value) => InputValidators.email(
+              value,
+              requiredMessage: 'Vui lòng nhập email đăng nhập',
+            ),
             decoration: _inputDecoration(
               hint: 'Nhập email nhân viên...',
               icon: Icons.email_outlined,
             ),
           ),
           const SizedBox(height: 12),
-          const Text('Mật khẩu *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const Text(
+            'Mật khẩu *',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
           const SizedBox(height: 6),
           TextFormField(
             controller: _loginPassCtrl,
@@ -332,8 +399,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               hint: 'Nhập mật khẩu...',
               icon: Icons.lock_outline,
               suffix: IconButton(
-                icon: Icon(_obscureLoginPass ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
-                onPressed: () => setState(() => _obscureLoginPass = !_obscureLoginPass),
+                icon: Icon(
+                  _obscureLoginPass
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 18,
+                ),
+                onPressed: () =>
+                    setState(() => _obscureLoginPass = !_obscureLoginPass),
               ),
             ),
           ),
@@ -357,7 +430,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ),
                     const SizedBox(width: 4),
                     const Flexible(
-                      child: Text('Ghi nhớ đăng nhập', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        'Ghi nhớ đăng nhập',
+                        style: TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -368,9 +445,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   minimumSize: const Size(50, 30),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                onPressed: () {},
-                child: const Text('Quên mật khẩu?', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              )
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/forgot-password'),
+                child: const Text(
+                  'Quên mật khẩu?',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -380,21 +461,37 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryOrange,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: _isLoading ? null : _handleLogin,
               child: _isLoading
                   ? const SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      ),
                     )
                   : const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Đăng Nhập', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text(
+                          'Đăng Nhập',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
                         SizedBox(width: 8),
-                        Icon(Icons.arrow_forward, color: Colors.black, size: 18),
+                        Icon(
+                          Icons.arrow_forward,
+                          color: Colors.black,
+                          size: 18,
+                        ),
                       ],
                     ),
             ),
@@ -407,7 +504,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               Expanded(child: Divider(color: Color(0xFFDCD6D0))),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Text('Hệ thống Manage365 API', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                child: Text(
+                  'Hệ thống Manage365 API',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ),
               Expanded(child: Divider(color: Color(0xFFDCD6D0))),
             ],
@@ -424,7 +524,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Họ và tên *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const Text(
+            'Họ và tên *',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
           const SizedBox(height: 6),
           TextFormField(
             controller: _regNameCtrl,
@@ -441,21 +548,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
           const SizedBox(height: 12),
 
-          const Text('Email nhân viên *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const Text(
+            'Email nhân viên *',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
           const SizedBox(height: 6),
           TextFormField(
             controller: _regEmailCtrl,
             keyboardType: TextInputType.emailAddress,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Email không được để trống';
-              }
-              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-              if (!emailRegex.hasMatch(value.trim())) {
-                return 'Định dạng email không hợp lệ';
-              }
-              return null;
-            },
+            validator: (value) => InputValidators.email(
+              value,
+              requiredMessage: 'Email không được để trống',
+              invalidMessage: 'Định dạng email không hợp lệ',
+            ),
             decoration: _inputDecoration(
               hint: 'Nhập địa chỉ email...',
               icon: Icons.email_outlined,
@@ -463,7 +572,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
           const SizedBox(height: 12),
 
-          const Text('Mật khẩu *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const Text(
+            'Mật khẩu *',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
           const SizedBox(height: 6),
           TextFormField(
             controller: _regPassCtrl,
@@ -481,14 +597,27 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               hint: 'Nhập mật khẩu mới...',
               icon: Icons.lock_outline,
               suffix: IconButton(
-                icon: Icon(_obscureRegPass ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
-                onPressed: () => setState(() => _obscureRegPass = !_obscureRegPass),
+                icon: Icon(
+                  _obscureRegPass
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 18,
+                ),
+                onPressed: () =>
+                    setState(() => _obscureRegPass = !_obscureRegPass),
               ),
             ),
           ),
           const SizedBox(height: 12),
 
-          const Text('Xác nhận mật khẩu *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const Text(
+            'Xác nhận mật khẩu *',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
           const SizedBox(height: 6),
           TextFormField(
             controller: _regConfirmPassCtrl,
@@ -506,8 +635,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               hint: 'Nhập lại mật khẩu...',
               icon: Icons.lock_reset_outlined,
               suffix: IconButton(
-                icon: Icon(_obscureRegConfirmPass ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
-                onPressed: () => setState(() => _obscureRegConfirmPass = !_obscureRegConfirmPass),
+                icon: Icon(
+                  _obscureRegConfirmPass
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 18,
+                ),
+                onPressed: () => setState(
+                  () => _obscureRegConfirmPass = !_obscureRegConfirmPass,
+                ),
               ),
             ),
           ),
@@ -519,16 +655,28 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryOrange,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: _isLoading ? null : _handleRegister,
               child: _isLoading
                   ? const SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      ),
                     )
-                  : const Text('Đăng Ký Tài Khoản', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
+                  : const Text(
+                      'Đăng Ký Tài Khoản',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
             ),
           ),
         ],
@@ -536,7 +684,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
   }
 
-  InputDecoration _inputDecoration({required String hint, required IconData icon, Widget? suffix}) {
+  InputDecoration _inputDecoration({
+    required String hint,
+    required IconData icon,
+    Widget? suffix,
+  }) {
     return InputDecoration(
       prefixIcon: Icon(icon, size: 18),
       suffixIcon: suffix,
@@ -545,11 +697,29 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       filled: true,
       fillColor: AppColors.bgInput,
       contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFF1E4D8))),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFF1E4D8))),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primaryOrange, width: 1.5)),
-      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.red)),
-      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.red, width: 1.5)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFF1E4D8)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFF1E4D8)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: AppColors.primaryOrange,
+          width: 1.5,
+        ),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red, width: 1.5),
+      ),
     );
   }
 }

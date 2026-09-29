@@ -1,31 +1,50 @@
-import 'package:flutter/foundation.dart';
-
 class ApiConfig {
-  // Cấu hình URL mặc định:
-  // - Máy thật cắm cáp USB (kèm lệnh adb reverse tcp:8080 tcp:8080): http://127.0.0.1:8080
-  // - Máy thật dùng Wi-Fi chung mạng: http://192.168.2.248:8080
-  // - Android Emulator: http://10.0.2.2:8080
-  // - Web / Windows Desktop: http://localhost:8080
-  static String get defaultBaseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:8080';
-    }
-    // Sử dụng trực tiếp IP máy tính trong mạng Wi-Fi (192.168.2.248) để điện thoại kết nối không bị phụ thuộc cáp USB
-    return 'http://192.168.2.248:8080';
+  static const String deployedBaseUrl = 'https://www.manage365.io.vn';
+
+  /// Có thể ghi đè khi build bằng:
+  /// `flutter build apk --dart-define=API_BASE_URL=https://example.com`
+  static const String _configuredBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: deployedBaseUrl,
+  );
+
+  static String get defaultBaseUrl => _normalizeBaseUrl(_configuredBaseUrl);
+
+  static String _baseUrl = defaultBaseUrl;
+
+  static String get baseUrl => _baseUrl;
+
+  static set baseUrl(String value) {
+    _baseUrl = _normalizeBaseUrl(value);
   }
 
-  static String baseUrl = defaultBaseUrl;
+  /// Chấp nhận domain gốc, URL Swagger và URL có dấu gạch chéo cuối.
+  static String _normalizeBaseUrl(String value) {
+    var normalized = value.trim().replaceFirst(RegExp(r'/+$'), '');
+    const swaggerSuffixes = ['/swagger/index.html', '/swagger/v1/swagger.json'];
 
-  // Endpoints
+    for (final suffix in swaggerSuffixes) {
+      if (normalized.toLowerCase().endsWith(suffix)) {
+        normalized = normalized.substring(0, normalized.length - suffix.length);
+        break;
+      }
+    }
+
+    return normalized.replaceFirst(RegExp(r'/+$'), '');
+  }
+
   static String get loginUrl => '$baseUrl/api/auth/login';
   static String get registerUrl => '$baseUrl/api/auth/register';
   static String get meUrl => '$baseUrl/api/auth/me';
+  static String get forgotPasswordUrl => '$baseUrl/api/auth/forgot-password';
+  static String get verifyResetCodeUrl => '$baseUrl/api/auth/verify-reset-code';
+  static String get resetPasswordUrl => '$baseUrl/api/auth/reset-password';
 
   static String get checkInUrl => '$baseUrl/api/attendance-check-ins';
-  static String get attendanceRecordsMeUrl => '$baseUrl/api/attendance-records/me';
+  static String get attendanceRecordsMeUrl =>
+      '$baseUrl/api/attendance-records/me';
   static String get attendanceSessionsUrl => '$baseUrl/api/attendance-sessions';
 
-  // Shift Attendance Endpoints
   static String get kioskQrUrl => '$baseUrl/api/attendance-qr/kiosk';
   static String get verifyQrUrl => '$baseUrl/api/attendance/verify-qr';
   static String get submitAttendanceUrl => '$baseUrl/api/attendance/submit';

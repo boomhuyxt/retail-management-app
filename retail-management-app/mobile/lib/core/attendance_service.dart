@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'api_config.dart';
 import 'auth_service.dart';
+import 'location_service.dart';
 
 class EligibleShiftModel {
-  final int shiftAssignmentId;
-  final int shiftId;
+  final int? shiftAssignmentId;
+  final int? shiftId;
   final String shiftName;
   final String shiftDate;
   final String startTime;
@@ -38,19 +39,23 @@ class EligibleShiftModel {
 
   factory EligibleShiftModel.fromJson(Map<String, dynamic> json) {
     return EligibleShiftModel(
-      shiftAssignmentId: json['shiftAssignmentId'] is int
-          ? json['shiftAssignmentId']
-          : int.tryParse(json['shiftAssignmentId'].toString()) ?? 0,
-      shiftId: json['shiftId'] is int ? json['shiftId'] : int.tryParse(json['shiftId'].toString()) ?? 0,
+      shiftAssignmentId: _parseNullableInt(json['shiftAssignmentId']),
+      shiftId: _parseNullableInt(json['shiftId']),
       shiftName: json['shiftName'] ?? 'Ca làm việc',
       shiftDate: json['shiftDate'] ?? '',
       startTime: json['startTime'] ?? '',
       endTime: json['endTime'] ?? '',
       isOvernight: json['isOvernight'] == true,
       status: json['status'] ?? 'Assigned',
-      checkInAt: json['checkInAt'] != null ? DateTime.tryParse(json['checkInAt'].toString())?.toLocal() : null,
-      checkOutAt: json['checkOutAt'] != null ? DateTime.tryParse(json['checkOutAt'].toString())?.toLocal() : null,
-      actualHours: json['actualHours'] != null ? double.tryParse(json['actualHours'].toString()) : null,
+      checkInAt: json['checkInAt'] != null
+          ? DateTime.tryParse(json['checkInAt'].toString())?.toLocal()
+          : null,
+      checkOutAt: json['checkOutAt'] != null
+          ? DateTime.tryParse(json['checkOutAt'].toString())?.toLocal()
+          : null,
+      actualHours: json['actualHours'] != null
+          ? double.tryParse(json['actualHours'].toString())
+          : null,
       allowedAction: json['allowedAction'] ?? 'NONE',
       canPerformAction: json['canPerformAction'] == true,
       actionHint: json['actionHint'] ?? '',
@@ -81,11 +86,12 @@ class VerifyQrResult {
 class SubmitAttendanceResult {
   final bool isSuccess;
   final String message;
-  final int shiftAssignmentId;
+  final int? shiftAssignmentId;
   final String shiftName;
   final String action;
   final DateTime timestamp;
   final double? actualHours;
+  final AttendanceProofModel? location;
   final String? errorCode;
 
   SubmitAttendanceResult({
@@ -96,13 +102,49 @@ class SubmitAttendanceResult {
     required this.action,
     required this.timestamp,
     this.actualHours,
+    this.location,
     this.errorCode,
   });
 }
 
+class AttendanceProofModel {
+  final String storeCode;
+  final double latitude;
+  final double longitude;
+  final double accuracyMeters;
+  final double distanceMeters;
+  final double allowedRadiusMeters;
+  final bool isMocked;
+  final bool isWithinGeofence;
+
+  const AttendanceProofModel({
+    required this.storeCode,
+    required this.latitude,
+    required this.longitude,
+    required this.accuracyMeters,
+    required this.distanceMeters,
+    required this.allowedRadiusMeters,
+    required this.isMocked,
+    required this.isWithinGeofence,
+  });
+
+  factory AttendanceProofModel.fromJson(Map<String, dynamic> json) {
+    return AttendanceProofModel(
+      storeCode: json['storeCode']?.toString() ?? '',
+      latitude: _parseDouble(json['latitude']),
+      longitude: _parseDouble(json['longitude']),
+      accuracyMeters: _parseDouble(json['accuracyMeters']),
+      distanceMeters: _parseDouble(json['distanceMeters']),
+      allowedRadiusMeters: _parseDouble(json['allowedRadiusMeters']),
+      isMocked: json['isMocked'] == true,
+      isWithinGeofence: json['isWithinGeofence'] == true,
+    );
+  }
+}
+
 class ShiftRecordModel {
   final int attendanceId;
-  final int shiftAssignmentId;
+  final int? shiftAssignmentId;
   final String shiftName;
   final String shiftDate;
   final DateTime checkInAt;
@@ -123,17 +165,22 @@ class ShiftRecordModel {
 
   factory ShiftRecordModel.fromJson(Map<String, dynamic> json) {
     return ShiftRecordModel(
-      attendanceId: json['attendanceId'] is int ? json['attendanceId'] : int.tryParse(json['attendanceId'].toString()) ?? 0,
-      shiftAssignmentId: json['shiftAssignmentId'] is int
-          ? json['shiftAssignmentId']
-          : int.tryParse(json['shiftAssignmentId'].toString()) ?? 0,
+      attendanceId: json['attendanceId'] is int
+          ? json['attendanceId']
+          : int.tryParse(json['attendanceId'].toString()) ?? 0,
+      shiftAssignmentId: _parseNullableInt(json['shiftAssignmentId']),
       shiftName: json['shiftName'] ?? 'Ca làm việc',
       shiftDate: json['shiftDate'] ?? '',
       checkInAt: json['checkInAt'] != null
-          ? DateTime.tryParse(json['checkInAt'].toString())?.toLocal() ?? DateTime.now()
+          ? DateTime.tryParse(json['checkInAt'].toString())?.toLocal() ??
+                DateTime.now()
           : DateTime.now(),
-      checkOutAt: json['checkOutAt'] != null ? DateTime.tryParse(json['checkOutAt'].toString())?.toLocal() : null,
-      actualHours: json['actualHours'] != null ? double.tryParse(json['actualHours'].toString()) : null,
+      checkOutAt: json['checkOutAt'] != null
+          ? DateTime.tryParse(json['checkOutAt'].toString())?.toLocal()
+          : null,
+      actualHours: json['actualHours'] != null
+          ? double.tryParse(json['actualHours'].toString())
+          : null,
       status: json['status'] ?? 'Completed',
     );
   }
@@ -155,16 +202,16 @@ class AttendanceService {
         );
       }
 
-      final response = await http.post(
-        Uri.parse(ApiConfig.verifyQrUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'qrPayload': qrPayload.trim(),
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse(ApiConfig.verifyQrUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'qrPayload': qrPayload.trim()}),
+          )
+          .timeout(const Duration(seconds: 10));
 
       Map<String, dynamic> data = {};
       try {
@@ -186,7 +233,10 @@ class AttendanceService {
         );
       } else {
         final code = data['code'] ?? 'invalid_qr';
-        final title = data['title'] ?? data['message'] ?? 'Mã QR không hợp lệ hoặc đã hết hạn.';
+        final title =
+            data['title'] ??
+            data['message'] ??
+            'Mã QR không hợp lệ hoặc đã hết hạn.';
         return VerifyQrResult(
           isSuccess: false,
           storeCode: '',
@@ -210,7 +260,7 @@ class AttendanceService {
 
   /// 2. Gửi yêu cầu Check-in hoặc Check-out cho một ca cụ thể
   static Future<SubmitAttendanceResult> submitAttendance({
-    required int shiftAssignmentId,
+    required int? shiftAssignmentId,
     required String action,
     required String qrPayload,
   }) async {
@@ -228,18 +278,23 @@ class AttendanceService {
         );
       }
 
-      final response = await http.post(
-        Uri.parse(ApiConfig.submitAttendanceUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'shiftAssignmentId': shiftAssignmentId,
-          'action': action,
-          'qrPayload': qrPayload.trim(),
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final position = await AttendanceLocationService.getCurrentPosition();
+
+      final response = await http
+          .post(
+            Uri.parse(ApiConfig.submitAttendanceUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'shiftAssignmentId': shiftAssignmentId,
+              'action': action,
+              'qrPayload': qrPayload.trim(),
+              'location': position.toJson(),
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       Map<String, dynamic> data = {};
       try {
@@ -248,10 +303,18 @@ class AttendanceService {
 
       if (response.statusCode == 200) {
         final ts = data['timestampUtc'] != null
-            ? DateTime.tryParse(data['timestampUtc'].toString())?.toLocal() ?? DateTime.now()
+            ? DateTime.tryParse(data['timestampUtc'].toString())?.toLocal() ??
+                  DateTime.now()
             : DateTime.now();
 
-        final hours = data['actualHours'] != null ? double.tryParse(data['actualHours'].toString()) : null;
+        final hours = data['actualHours'] != null
+            ? double.tryParse(data['actualHours'].toString())
+            : null;
+        final location = data['location'] is Map<String, dynamic>
+            ? AttendanceProofModel.fromJson(
+                data['location'] as Map<String, dynamic>,
+              )
+            : null;
 
         return SubmitAttendanceResult(
           isSuccess: true,
@@ -261,10 +324,14 @@ class AttendanceService {
           action: data['action'] ?? action,
           timestamp: ts,
           actualHours: hours,
+          location: location,
         );
       } else {
         final code = data['code'] ?? 'submit_error';
-        final title = data['title'] ?? data['message'] ?? 'Chấm công thất bại (${response.statusCode})';
+        final title =
+            data['title'] ??
+            data['message'] ??
+            'Chấm công thất bại (${response.statusCode})';
         return SubmitAttendanceResult(
           isSuccess: false,
           message: title.toString(),
@@ -275,6 +342,16 @@ class AttendanceService {
           errorCode: code.toString(),
         );
       }
+    } on AttendanceLocationException catch (e) {
+      return SubmitAttendanceResult(
+        isSuccess: false,
+        message: e.message,
+        shiftAssignmentId: shiftAssignmentId,
+        shiftName: '',
+        action: action,
+        timestamp: DateTime.now(),
+        errorCode: e.code,
+      );
     } catch (e) {
       return SubmitAttendanceResult(
         isSuccess: false,
@@ -289,24 +366,42 @@ class AttendanceService {
   }
 
   /// 3. Lấy lịch sử chấm công theo ca của nhân viên
-  static Future<List<ShiftRecordModel>> getShiftHistory({int limit = 20}) async {
+  static Future<List<ShiftRecordModel>> getShiftHistory({
+    int limit = 20,
+  }) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) return [];
 
-      final response = await http.get(
-        Uri.parse('${ApiConfig.shiftHistoryUrl}?limit=$limit'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('${ApiConfig.shiftHistoryUrl}?limit=$limit'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final list = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>? ?? [];
-        return list.map((e) => ShiftRecordModel.fromJson(e as Map<String, dynamic>)).toList();
+        final list =
+            jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>? ?? [];
+        return list
+            .map((e) => ShiftRecordModel.fromJson(e as Map<String, dynamic>))
+            .toList();
       }
     } catch (_) {}
     return [];
   }
+}
+
+int? _parseNullableInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  return int.tryParse(value.toString());
+}
+
+double _parseDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '') ?? 0;
 }

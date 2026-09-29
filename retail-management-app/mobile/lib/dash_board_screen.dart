@@ -84,7 +84,10 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
     }
   }
 
-  Future<void> _showShiftSelectionBottomSheet(VerifyQrResult verifyResult, String qrPayload) async {
+  Future<void> _showShiftSelectionBottomSheet(
+    VerifyQrResult verifyResult,
+    String qrPayload,
+  ) async {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -104,7 +107,10 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                 child: Container(
                   width: 40,
                   height: 4,
-                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -118,7 +124,11 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                       color: AppColors.primaryOrange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.storefront, color: AppColors.primaryOrange, size: 24),
+                    child: const Icon(
+                      Icons.storefront,
+                      color: AppColors.primaryOrange,
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -127,11 +137,19 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                       children: [
                         Text(
                           verifyResult.storeName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textDark),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppColors.textDark,
+                          ),
                         ),
                         Text(
                           'Mã trạm: ${verifyResult.storeCode} • QR Hợp lệ',
-                          style: TextStyle(fontSize: 12, color: Colors.green.shade700, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green.shade700,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -144,7 +162,11 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
 
               const Text(
                 'DANH SÁCH CA LÀM VIỆC CỦA BẠN:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
               ),
               const SizedBox(height: 10),
 
@@ -160,7 +182,9 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                   ),
                 )
               else
-                ...verifyResult.eligibleShifts.map((shift) => _buildShiftCard(shift, qrPayload, ctx)),
+                ...verifyResult.eligibleShifts.map(
+                  (shift) => _buildShiftCard(shift, qrPayload, ctx),
+                ),
 
               const SizedBox(height: 12),
             ],
@@ -170,7 +194,11 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
     );
   }
 
-  Widget _buildShiftCard(EligibleShiftModel shift, String qrPayload, BuildContext bottomSheetContext) {
+  Widget _buildShiftCard(
+    EligibleShiftModel shift,
+    String qrPayload,
+    BuildContext bottomSheetContext,
+  ) {
     Color statusColor = Colors.grey;
     String statusText = 'Chưa vào ca';
     if (shift.status == 'CheckedIn') {
@@ -188,7 +216,9 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
         color: AppColors.bgLightCream,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: shift.status == 'CheckedIn' ? Colors.blue.shade200 : const Color(0xFFEADCCF),
+          color: shift.status == 'CheckedIn'
+              ? Colors.blue.shade200
+              : const Color(0xFFEADCCF),
           width: shift.status == 'CheckedIn' ? 1.5 : 1.0,
         ),
       ),
@@ -200,7 +230,11 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
             children: [
               Text(
                 shift.shiftName,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: AppColors.textDark,
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -210,7 +244,11 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                 ),
                 child: Text(
                   statusText,
-                  style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -249,11 +287,24 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryOrange,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 icon: const Icon(Icons.login, color: Colors.white, size: 18),
-                label: const Text('Xác nhận Vào Ca (Check-in)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                onPressed: () => _handleSubmit(shift.shiftAssignmentId, 'CHECK_IN', qrPayload, bottomSheetContext),
+                label: const Text(
+                  'Xác nhận Vào Ca (Check-in)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onPressed: () => _handleSubmit(
+                  shift.shiftAssignmentId,
+                  'CHECK_IN',
+                  qrPayload,
+                  bottomSheetContext,
+                ),
               ),
             )
           else if (shift.allowedAction == 'CHECK_OUT')
@@ -263,22 +314,42 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade600,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 icon: const Icon(Icons.logout, color: Colors.white, size: 18),
-                label: const Text('Xác nhận Tan Ca (Check-out)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                onPressed: () => _handleSubmit(shift.shiftAssignmentId, 'CHECK_OUT', qrPayload, bottomSheetContext),
+                label: const Text(
+                  'Xác nhận Tan Ca (Check-out)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onPressed: () => _handleSubmit(
+                  shift.shiftAssignmentId,
+                  'CHECK_OUT',
+                  qrPayload,
+                  bottomSheetContext,
+                ),
               ),
             )
           else
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: const Center(
                 child: Text(
                   '✓ Đã chấm công xong ca này',
-                  style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -287,13 +358,20 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
     );
   }
 
-  Future<void> _handleSubmit(int shiftAssignmentId, String action, String qrPayload, BuildContext bottomSheetContext) async {
+  Future<void> _handleSubmit(
+    int? shiftAssignmentId,
+    String action,
+    String qrPayload,
+    BuildContext bottomSheetContext,
+  ) async {
     Navigator.pop(bottomSheetContext); // Đóng BottomSheet
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const Center(child: CircularProgressIndicator(color: AppColors.primaryOrange)),
+      builder: (ctx) => const Center(
+        child: CircularProgressIndicator(color: AppColors.primaryOrange),
+      ),
     );
 
     final result = await AttendanceService.submitAttendance(
@@ -306,9 +384,16 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
     Navigator.pop(context); // Đóng Loading Dialog
 
     if (result.isSuccess) {
+      final locationMessage = result.location == null
+          ? ''
+          : '\nVị trí hợp lệ: cách cửa hàng ${result.location!.distanceMeters.toStringAsFixed(1)}m '
+                '(bán kính ${result.location!.allowedRadiusMeters.toStringAsFixed(0)}m, '
+                'sai số GPS ${result.location!.accuracyMeters.toStringAsFixed(1)}m).';
       _showSuccessDialog(
-        title: action == 'CHECK_IN' ? 'Check-in thành công!' : 'Check-out thành công!',
-        message: result.message,
+        title: action == 'CHECK_IN'
+            ? 'Check-in thành công!'
+            : 'Check-out thành công!',
+        message: '${result.message}$locationMessage',
       );
       _loadHistory(); // Nạp lại lịch sử
     } else {
@@ -325,7 +410,15 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
           children: [
             const Icon(Icons.check_circle, color: Colors.green, size: 28),
             const SizedBox(width: 10),
-            Flexible(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+            Flexible(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ],
         ),
         content: Text(message, style: const TextStyle(fontSize: 14)),
@@ -333,10 +426,18 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryOrange,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đóng', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Đóng',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -352,7 +453,15 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
           children: [
             const Icon(Icons.error_outline, color: Colors.red, size: 28),
             const SizedBox(width: 10),
-            Flexible(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+            Flexible(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ],
         ),
         content: Text(message, style: const TextStyle(fontSize: 14)),
@@ -360,10 +469,18 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.grey.shade700,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đóng', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Đóng',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -376,7 +493,10 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Nhập mã QR thủ công (Test)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Nhập mã QR thủ công (Test)',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         content: TextField(
           controller: textController,
           decoration: const InputDecoration(
@@ -385,9 +505,14 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryOrange),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryOrange,
+            ),
             onPressed: () {
               final val = textController.text.trim();
               Navigator.pop(ctx);
@@ -395,7 +520,13 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                 _processQrCode(val);
               }
             },
-            child: const Text('Xác thực QR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Xác thực QR',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -407,7 +538,13 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
     return Scaffold(
       backgroundColor: AppColors.bgLightCream,
       appBar: AppBar(
-        title: const Text('Điểm Danh QR Theo Ca', style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Điểm Danh QR Theo Ca',
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -450,7 +587,9 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                         height: 200,
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: _isProcessing ? Colors.green : AppColors.primaryOrange,
+                            color: _isProcessing
+                                ? Colors.green
+                                : AppColors.primaryOrange,
                             width: 3,
                           ),
                           borderRadius: BorderRadius.circular(12),
@@ -463,12 +602,18 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                CircularProgressIndicator(color: AppColors.primaryOrange),
+                                CircularProgressIndicator(
+                                  color: AppColors.primaryOrange,
+                                ),
                                 SizedBox(height: 12),
                                 Text(
                                   'Đang xác thực mã QR...',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                                )
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -497,87 +642,134 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                       children: [
                         const Text(
                           'Lịch sử ca làm việc',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.refresh, size: 20, color: Colors.grey),
+                          icon: const Icon(
+                            Icons.refresh,
+                            size: 20,
+                            color: Colors.grey,
+                          ),
                           onPressed: _loadHistory,
                           tooltip: 'Làm mới lịch sử',
-                        )
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),
                     Expanded(
                       child: _isLoadingHistory
-                          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryOrange))
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.primaryOrange,
+                              ),
+                            )
                           : _shiftHistory.isEmpty
-                              ? const Center(child: Text('Chưa có lịch sử chấm công ca nào', style: TextStyle(color: Colors.grey)))
-                              : ListView.builder(
-                                  itemCount: _shiftHistory.length,
-                                  itemBuilder: (context, index) {
-                                    final item = _shiftHistory[index];
-                                    final hasCheckOut = item.checkOutAt != null;
+                          ? const Center(
+                              child: Text(
+                                'Chưa có lịch sử chấm công ca nào',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: _shiftHistory.length,
+                              itemBuilder: (context, index) {
+                                final item = _shiftHistory[index];
+                                final hasCheckOut = item.checkOutAt != null;
 
-                                    return Container(
-                                      margin: const EdgeInsets.only(bottom: 10),
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.03),
-                                            blurRadius: 6,
-                                          )
-                                        ],
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.03,
+                                        ),
+                                        blurRadius: 6,
                                       ),
-                                      child: Row(
-                                        children: [
-                                          CircleAvatar(
-                                            backgroundColor: (hasCheckOut ? Colors.green : Colors.blue).withValues(alpha: 0.1),
-                                            child: Icon(
-                                              hasCheckOut ? Icons.check_circle : Icons.timer,
-                                              color: hasCheckOut ? Colors.green : Colors.blue,
-                                              size: 20,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  '${item.shiftName} (${item.shiftDate})',
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                                ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  'Vào: ${DateFormat("HH:mm - dd/MM").format(item.checkInAt)}${item.checkOutAt != null ? " • Ra: ${DateFormat("HH:mm - dd/MM").format(item.checkOutAt!)}" : " • Đang làm việc..."}',
-                                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: (hasCheckOut ? Colors.green : Colors.blue).withValues(alpha: 0.1),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              hasCheckOut ? '${item.actualHours ?? 0}h' : 'Trong ca',
-                                              style: TextStyle(
-                                                color: hasCheckOut ? Colors.green : Colors.blue,
-                                                fontSize: 11,
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor:
+                                            (hasCheckOut
+                                                    ? Colors.green
+                                                    : Colors.blue)
+                                                .withValues(alpha: 0.1),
+                                        child: Icon(
+                                          hasCheckOut
+                                              ? Icons.check_circle
+                                              : Icons.timer,
+                                          color: hasCheckOut
+                                              ? Colors.green
+                                              : Colors.blue,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${item.shiftName} (${item.shiftDate})',
+                                              style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
+                                                fontSize: 14,
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Vào: ${DateFormat("HH:mm - dd/MM").format(item.checkInAt)}${item.checkOutAt != null ? " • Ra: ${DateFormat("HH:mm - dd/MM").format(item.checkOutAt!)}" : " • Đang làm việc..."}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    );
-                                  },
-                                ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              (hasCheckOut
+                                                      ? Colors.green
+                                                      : Colors.blue)
+                                                  .withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          hasCheckOut
+                                              ? '${item.actualHours ?? 0}h'
+                                              : 'Trong ca',
+                                          style: TextStyle(
+                                            color: hasCheckOut
+                                                ? Colors.green
+                                                : Colors.blue,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                     ),
                   ],
                 ),

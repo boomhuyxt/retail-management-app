@@ -18,7 +18,9 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id'].toString()) ?? 0,
       email: json['email'] ?? '',
       displayName: json['displayName'] ?? '',
       role: json['role'] ?? 'Employee',
@@ -26,12 +28,7 @@ class UserModel {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'email': email,
-      'displayName': displayName,
-      'role': role,
-    };
+    return {'id': id, 'email': email, 'displayName': displayName, 'role': role};
   }
 }
 
@@ -49,6 +46,18 @@ class AuthResult {
   });
 }
 
+class PasswordResetResult {
+  final bool isSuccess;
+  final String message;
+  final String? resetToken;
+
+  const PasswordResetResult({
+    required this.isSuccess,
+    required this.message,
+    this.resetToken,
+  });
+}
+
 class AuthService {
   static const String _keyToken = 'auth_token';
   static const String _keyUser = 'auth_user';
@@ -59,14 +68,13 @@ class AuthService {
   /// Đăng nhập nhân viên
   static Future<AuthResult> login(String email, String password) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiConfig.loginUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email.trim(),
-          'password': password,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse(ApiConfig.loginUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email.trim(), 'password': password}),
+          )
+          .timeout(const Duration(seconds: 10));
 
       final data = jsonDecode(utf8.decode(response.bodyBytes));
 
@@ -92,7 +100,10 @@ class AuthService {
           message: 'Quá nhiều lần thử đăng nhập. Vui lòng thử lại sau 1 phút.',
         );
       } else {
-        final title = data['title'] ?? data['message'] ?? 'Đăng nhập thất bại (${response.statusCode})';
+        final title =
+            data['title'] ??
+            data['message'] ??
+            'Đăng nhập thất bại (${response.statusCode})';
         return AuthResult(isSuccess: false, message: title.toString());
       }
     } catch (e) {
@@ -110,15 +121,17 @@ class AuthService {
     required String displayName,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiConfig.registerUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email.trim(),
-          'password': password,
-          'displayName': displayName.trim(),
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse(ApiConfig.registerUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': email.trim(),
+              'password': password,
+              'displayName': displayName.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       final data = jsonDecode(utf8.decode(response.bodyBytes));
 
@@ -155,13 +168,89 @@ class AuthService {
             return AuthResult(isSuccess: false, message: errorList.join('\n'));
           }
         }
-        final title = data['title'] ?? data['message'] ?? 'Đăng ký không thành công';
+        final title =
+            data['title'] ?? data['message'] ?? 'Đăng ký không thành công';
         return AuthResult(isSuccess: false, message: title.toString());
       }
     } catch (e) {
-      return AuthResult(
+      return AuthResult(isSuccess: false, message: 'Lỗi kết nối máy chủ: $e');
+    }
+  }
+
+  static Future<PasswordResetResult> requestPasswordReset(String email) async {
+    return _postPasswordReset(
+      ApiConfig.forgotPasswordUrl,
+      {'email': email.trim()},
+      successMessage: 'Nếu email tồn tại, mã xác nhận đã được gửi.',
+    );
+  }
+
+  static Future<PasswordResetResult> verifyResetCode({
+    required String email,
+    required String code,
+  }) async {
+    return _postPasswordReset(
+      ApiConfig.verifyResetCodeUrl,
+      {'email': email.trim(), 'code': code.trim()},
+      successMessage: 'Mã xác nhận hợp lệ.',
+      includeResetToken: true,
+    );
+  }
+
+  static Future<PasswordResetResult> resetPassword({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  }) async {
+    return _postPasswordReset(ApiConfig.resetPasswordUrl, {
+      'email': email.trim(),
+      'resetToken': resetToken,
+      'newPassword': newPassword,
+    }, successMessage: 'Mật khẩu đã được cập nhật.');
+  }
+
+  static Future<PasswordResetResult> _postPasswordReset(
+    String url,
+    Map<String, String> body, {
+    required String successMessage,
+    bool includeResetToken = false,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 15));
+      final dynamic data = response.bodyBytes.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(utf8.decode(response.bodyBytes));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return PasswordResetResult(
+          isSuccess: true,
+          message: data is Map
+              ? data['message']?.toString() ?? successMessage
+              : successMessage,
+          resetToken: includeResetToken && data is Map
+              ? data['resetToken']?.toString()
+              : null,
+        );
+      }
+
+      final fallback = response.statusCode == 429
+          ? 'Bạn thao tác quá nhiều lần. Vui lòng thử lại sau.'
+          : 'Yêu cầu không hợp lệ hoặc đã hết hạn.';
+      return PasswordResetResult(
         isSuccess: false,
-        message: 'Lỗi kết nối máy chủ: $e',
+        message: data is Map ? data['title']?.toString() ?? fallback : fallback,
+      );
+    } catch (_) {
+      return const PasswordResetResult(
+        isSuccess: false,
+        message:
+            'Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng và thử lại.',
       );
     }
   }
