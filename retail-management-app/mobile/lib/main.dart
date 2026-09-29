@@ -10,7 +10,7 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
 }
 
 class MainShellScreen extends StatefulWidget {
-  const MainShellScreen({Key? key}) : super(key: key);
+  const MainShellScreen({super.key});
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();

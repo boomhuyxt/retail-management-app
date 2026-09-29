@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'core/attendance_service.dart';
 import 'theme.dart';
 
 class DashboardQRScreen extends StatefulWidget {
-  const DashboardQRScreen({Key? key}) : super(key: key);
+  const DashboardQRScreen({super.key});
 
   @override
   State<DashboardQRScreen> createState() => _DashboardQRScreenState();
@@ -11,21 +13,28 @@ class DashboardQRScreen extends StatefulWidget {
 
 class _DashboardQRScreenState extends State<DashboardQRScreen> {
   final MobileScannerController _scannerController = MobileScannerController();
-  bool _isProcessing = false; // Tránh việc camera quét liên tục 1 mã nhiều lần
+  bool _isProcessing = false;
+  bool _isLoadingHistory = false;
 
-  // Danh sách lịch sử vào ca / ra ca mẫu
-  final List<Map<String, String>> _attendanceHistory = [
-    {
-      'type': 'Vào ca',
-      'time': '08:00 - 22/09/2026',
-      'status': 'Đúng giờ',
-    },
-    {
-      'type': 'Ra ca',
-      'time': '17:05 - 21/09/2026',
-      'status': 'Đúng giờ',
-    },
-  ];
+  final List<ShiftRecordModel> _shiftHistory = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() => _isLoadingHistory = true);
+    final records = await AttendanceService.getShiftHistory();
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingHistory = false;
+      _shiftHistory.clear();
+      _shiftHistory.addAll(records);
+    });
+  }
 
   @override
   void dispose() {
@@ -33,62 +42,364 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
     super.dispose();
   }
 
-  // Xử lý khi camera phát hiện mã QR
+  Future<void> _processQrCode(String codeValue) async {
+    if (_isProcessing) return;
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    final result = await AttendanceService.verifyQr(codeValue);
+
+    if (!mounted) return;
+
+    if (!result.isSuccess) {
+      _showErrorDialog('Lỗi quét mã QR', result.message);
+      _unlockScannerAfterDelay();
+      return;
+    }
+
+    // Hiển thị BottomSheet chọn ca và xác nhận thao tác
+    await _showShiftSelectionBottomSheet(result, codeValue);
+    _unlockScannerAfterDelay();
+  }
+
+  void _unlockScannerAfterDelay() {
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
+    });
+  }
+
   void _onDetect(BarcodeCapture capture) {
     if (_isProcessing) return;
 
     final List<Barcode> barcodes = capture.barcodes;
     if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
-      setState(() {
-        _isProcessing = true;
-      });
-
       final String codeValue = barcodes.first.rawValue!;
-
-      // Tự động xác định Vào ca / Ra ca dựa trên lượt gần nhất
-      final String nextType = (_attendanceHistory.isEmpty || _attendanceHistory.first['type'] == 'Ra ca')
-          ? 'Vào ca'
-          : 'Ra ca';
-
-      final String currentTime = _getCurrentFormattedTime();
-
-      // Thêm lượt quét mới vào lịch sử
-      setState(() {
-        _attendanceHistory.insert(0, {
-          'type': nextType,
-          'time': currentTime,
-          'status': 'Thành công',
-        });
-      });
-
-      // Hiển thị thông báo thành công
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Quét thành công ($nextType): $codeValue'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-
-      // Đợi 3 giây trước khi cho phép quét lượt tiếp theo
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() {
-            _isProcessing = false;
-          });
-        }
-      });
+      _processQrCode(codeValue);
     }
   }
 
-  String _getCurrentFormattedTime() {
-    final now = DateTime.now();
-    final hour = now.hour.toString().padLeft(2, '0');
-    final minute = now.minute.toString().padLeft(2, '0');
-    final day = now.day.toString().padLeft(2, '0');
-    final month = now.month.toString().padLeft(2, '0');
-    final year = now.year;
-    return '$hour:$minute - $day/$month/$year';
+  Future<void> _showShiftSelectionBottomSheet(VerifyQrResult verifyResult, String qrPayload) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Tiêu đề Kiosk
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryOrange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.storefront, color: AppColors.primaryOrange, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          verifyResult.storeName,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textDark),
+                        ),
+                        Text(
+                          'Mã trạm: ${verifyResult.storeCode} • QR Hợp lệ',
+                          style: TextStyle(fontSize: 12, color: Colors.green.shade700, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+
+              const Text(
+                'DANH SÁCH CA LÀM VIỆC CỦA BẠN:',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+              ),
+              const SizedBox(height: 10),
+
+              if (verifyResult.eligibleShifts.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: Text(
+                      'Hôm nay bạn không có ca làm việc nào được phân công tại chi nhánh này.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                )
+              else
+                ...verifyResult.eligibleShifts.map((shift) => _buildShiftCard(shift, qrPayload, ctx)),
+
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildShiftCard(EligibleShiftModel shift, String qrPayload, BuildContext bottomSheetContext) {
+    Color statusColor = Colors.grey;
+    String statusText = 'Chưa vào ca';
+    if (shift.status == 'CheckedIn') {
+      statusColor = Colors.blue;
+      statusText = 'Đang trong ca';
+    } else if (shift.status == 'Completed') {
+      statusColor = Colors.green;
+      statusText = 'Đã hoàn tất ca';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bgLightCream,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: shift.status == 'CheckedIn' ? Colors.blue.shade200 : const Color(0xFFEADCCF),
+          width: shift.status == 'CheckedIn' ? 1.5 : 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                shift.shiftName,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  statusText,
+                  style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.access_time, size: 14, color: Colors.grey),
+              const SizedBox(width: 4),
+              Text(
+                'Khung giờ: ${shift.startTime} - ${shift.endTime}${shift.isOvernight ? " (Qua đêm)" : ""}',
+                style: const TextStyle(fontSize: 13, color: Colors.black87),
+              ),
+            ],
+          ),
+          if (shift.checkInAt != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              '• Giờ Check-in: ${DateFormat("HH:mm:ss").format(shift.checkInAt!)}',
+              style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+            ),
+          ],
+          if (shift.checkOutAt != null) ...[
+            Text(
+              '• Giờ Check-out: ${DateFormat("HH:mm:ss").format(shift.checkOutAt!)} (${shift.actualHours ?? 0}h)',
+              style: TextStyle(fontSize: 12, color: Colors.green.shade700),
+            ),
+          ],
+          const SizedBox(height: 10),
+
+          // NÚT THAO TÁC THEO CA
+          if (shift.allowedAction == 'CHECK_IN')
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryOrange,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.login, color: Colors.white, size: 18),
+                label: const Text('Xác nhận Vào Ca (Check-in)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () => _handleSubmit(shift.shiftAssignmentId, 'CHECK_IN', qrPayload, bottomSheetContext),
+              ),
+            )
+          else if (shift.allowedAction == 'CHECK_OUT')
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.logout, color: Colors.white, size: 18),
+                label: const Text('Xác nhận Tan Ca (Check-out)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () => _handleSubmit(shift.shiftAssignmentId, 'CHECK_OUT', qrPayload, bottomSheetContext),
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+              child: const Center(
+                child: Text(
+                  '✓ Đã chấm công xong ca này',
+                  style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleSubmit(int shiftAssignmentId, String action, String qrPayload, BuildContext bottomSheetContext) async {
+    Navigator.pop(bottomSheetContext); // Đóng BottomSheet
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator(color: AppColors.primaryOrange)),
+    );
+
+    final result = await AttendanceService.submitAttendance(
+      shiftAssignmentId: shiftAssignmentId,
+      action: action,
+      qrPayload: qrPayload,
+    );
+
+    if (!mounted) return;
+    Navigator.pop(context); // Đóng Loading Dialog
+
+    if (result.isSuccess) {
+      _showSuccessDialog(
+        title: action == 'CHECK_IN' ? 'Check-in thành công!' : 'Check-out thành công!',
+        message: result.message,
+      );
+      _loadHistory(); // Nạp lại lịch sử
+    } else {
+      _showErrorDialog('Chấm công không thành công', result.message);
+    }
+  }
+
+  void _showSuccessDialog({required String title, required String message}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 28),
+            const SizedBox(width: 10),
+            Flexible(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+          ],
+        ),
+        content: Text(message, style: const TextStyle(fontSize: 14)),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryOrange,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 28),
+            const SizedBox(width: 10),
+            Flexible(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+          ],
+        ),
+        content: Text(message, style: const TextStyle(fontSize: 14)),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey.shade700,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showManualInputDialog() {
+    final textController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Nhập mã QR thủ công (Test)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: textController,
+          decoration: const InputDecoration(
+            hintText: 'Dán chuỗi token QR tại đây...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryOrange),
+            onPressed: () {
+              final val = textController.text.trim();
+              Navigator.pop(ctx);
+              if (val.isNotEmpty) {
+                _processQrCode(val);
+              }
+            },
+            child: const Text('Xác thực QR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -96,13 +407,19 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
     return Scaffold(
       backgroundColor: AppColors.bgLightCream,
       appBar: AppBar(
-        title: const Text('Điểm Danh QR', style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold)),
+        title: const Text('Điểm Danh QR Theo Ca', style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         actions: [
           IconButton(
+            icon: const Icon(Icons.keyboard, color: AppColors.primaryOrange),
+            tooltip: 'Nhập mã QR thủ công',
+            onPressed: _showManualInputDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.cameraswitch, color: Colors.grey),
+            tooltip: 'Đổi camera',
             onPressed: () => _scannerController.switchCamera(),
           ),
         ],
@@ -128,7 +445,6 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                         controller: _scannerController,
                         onDetect: _onDetect,
                       ),
-                      // Khung ngắm quét mã QR
                       Container(
                         width: 200,
                         height: 200,
@@ -142,16 +458,16 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                       ),
                       if (_isProcessing)
                         Container(
-                          color: Colors.black45,
+                          color: Colors.black54,
                           child: const Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 CircularProgressIndicator(color: AppColors.primaryOrange),
-                                SizedBox(height: 8),
+                                SizedBox(height: 12),
                                 Text(
-                                  'Đã ghi nhận điểm danh!',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  'Đang xác thực mã QR...',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                                 )
                               ],
                             ),
@@ -164,100 +480,104 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
 
               const SizedBox(height: 12),
               const Text(
-                'Di chuyển camera đến mã QR cửa hàng để điểm danh',
+                'Hướng camera về phía mã QR động tại Kiosk cửa hàng để chọn ca chấm công',
                 style: TextStyle(fontSize: 12, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
 
               const SizedBox(height: 20),
 
-              // DANH SÁCH LỊCH SỬ VÀO CA / RA CA
+              // LỊCH SỬ CHẤM CÔNG THEO CA
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Lịch sử điểm danh',
+                        const Text(
+                          'Lịch sử ca làm việc',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark),
                         ),
-                        Icon(Icons.history, size: 20, color: Colors.grey),
+                        IconButton(
+                          icon: const Icon(Icons.refresh, size: 20, color: Colors.grey),
+                          onPressed: _loadHistory,
+                          tooltip: 'Làm mới lịch sử',
+                        )
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
                     Expanded(
-                      child: _attendanceHistory.isEmpty
-                          ? const Center(child: Text('Chưa có dữ liệu điểm danh', style: TextStyle(color: Colors.grey)))
-                          : ListView.builder(
-                        itemCount: _attendanceHistory.length,
-                        itemBuilder: (context, index) {
-                          final item = _attendanceHistory[index];
-                          final isCheckIn = item['type'] == 'Vào ca';
+                      child: _isLoadingHistory
+                          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryOrange))
+                          : _shiftHistory.isEmpty
+                              ? const Center(child: Text('Chưa có lịch sử chấm công ca nào', style: TextStyle(color: Colors.grey)))
+                              : ListView.builder(
+                                  itemCount: _shiftHistory.length,
+                                  itemBuilder: (context, index) {
+                                    final item = _shiftHistory[index];
+                                    final hasCheckOut = item.checkOutAt != null;
 
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.03),
-                                  blurRadius: 6,
-                                )
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundColor: isCheckIn
-                                      ? Colors.green.withValues(alpha: 0.1)
-                                      : Colors.orange.withValues(alpha: 0.1),
-                                  child: Icon(
-                                    isCheckIn ? Icons.login : Icons.logout,
-                                    color: isCheckIn ? Colors.green : Colors.orange,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item['type']!,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 10),
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.03),
+                                            blurRadius: 6,
+                                          )
+                                        ],
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        item['time']!,
-                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                      child: Row(
+                                        children: [
+                                          CircleAvatar(
+                                            backgroundColor: (hasCheckOut ? Colors.green : Colors.blue).withValues(alpha: 0.1),
+                                            child: Icon(
+                                              hasCheckOut ? Icons.check_circle : Icons.timer,
+                                              color: hasCheckOut ? Colors.green : Colors.blue,
+                                              size: 20,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '${item.shiftName} (${item.shiftDate})',
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  'Vào: ${DateFormat("HH:mm - dd/MM").format(item.checkInAt)}${item.checkOutAt != null ? " • Ra: ${DateFormat("HH:mm - dd/MM").format(item.checkOutAt!)}" : " • Đang làm việc..."}',
+                                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: (hasCheckOut ? Colors.green : Colors.blue).withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              hasCheckOut ? '${item.actualHours ?? 0}h' : 'Trong ca',
+                                              style: TextStyle(
+                                                color: hasCheckOut ? Colors.green : Colors.blue,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
+                                    );
+                                  },
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    item['status']!,
-                                    style: const TextStyle(
-                                      color: Colors.green,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
                     ),
                   ],
                 ),

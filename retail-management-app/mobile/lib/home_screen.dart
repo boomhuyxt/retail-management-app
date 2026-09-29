@@ -1,11 +1,54 @@
 import 'package:flutter/material.dart';
+import 'core/auth_service.dart';
 import 'theme.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  UserModel? _user;
+
+  @override
+  void initState() {
+    super.initState();
+    _user = AuthService.currentUser;
+  }
+
+  Future<void> _handleLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận đăng xuất', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Đăng xuất', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await AuthService.logout();
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final displayName = _user?.displayName.isNotEmpty == true ? _user!.displayName : 'Nhân viên';
+    final email = _user?.email.isNotEmpty == true ? _user!.email : 'employee@retail365.com';
+    final role = _user?.role.isNotEmpty == true ? _user!.role : 'Employee';
+
     return Scaffold(
       backgroundColor: AppColors.bgLightCream,
       body: SafeArea(
@@ -22,7 +65,7 @@ class HomeScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -40,9 +83,9 @@ class HomeScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Nguyễn Văn A',
-                            style: TextStyle(
+                          Text(
+                            displayName,
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textDark,
@@ -50,19 +93,19 @@ class HomeScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Mã NV: NV-36521',
+                            email,
                             style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: AppColors.primaryOrange.withOpacity(0.1),
+                              color: AppColors.primaryOrange.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: const Text(
-                              'Nhân viên bán hàng',
-                              style: TextStyle(
+                            child: Text(
+                              role == 'Employee' ? 'Nhân viên bán hàng' : role,
+                              style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.primaryOrange,
                                 fontWeight: FontWeight.bold,
@@ -88,7 +131,7 @@ class HomeScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [AppColors.primaryOrange, AppColors.primaryOrange.withOpacity(0.8)],
+                    colors: [AppColors.primaryOrange, AppColors.primaryOrange.withValues(alpha: 0.8)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -119,7 +162,7 @@ class HomeScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Trạng thái:', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text('Chưa điểm danh', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text('Đã kết nối Hệ thống QR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                       ],
                     ),
                   ],
@@ -147,16 +190,13 @@ class HomeScreen extends StatelessWidget {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.logout, color: Colors.red),
                 ),
                 title: const Text('Đăng xuất', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                onTap: () {
-                  // Chuyển về màn hình Đăng nhập
-                  Navigator.pushReplacementNamed(context, '/login');
-                },
+                onTap: _handleLogout,
               ),
             ],
           ),
