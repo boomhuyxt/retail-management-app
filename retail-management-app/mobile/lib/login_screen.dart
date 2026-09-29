@@ -151,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen>
             TextField(
               controller: urlController,
               decoration: const InputDecoration(
-                hintText: 'http://10.0.2.2:8080 hoặc http://localhost:8080',
+                hintText: 'https://www.manage365.io.vn',
                 border: OutlineInputBorder(),
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: 12,
