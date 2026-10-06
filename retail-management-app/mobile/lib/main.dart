@@ -45,7 +45,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   // Thứ tự các màn hình tương ứng từ trái sang phải
   final List<Widget> _screens = const [
-    ScheduleScreen(), // Tab 0: Bảng Phân Ca (Màn hình đầu tiên)
+    ShiftScheduleScreen(), // Tab 0: Bảng Phân Ca (Màn hình đầu tiên)
     DashboardQRScreen(), // Tab 1: Chấm Công / QR
     HomeScreen(), // Tab 2: Profile / Cá Nhân
   ];
@@ -53,9 +53,12 @@ class _MainShellScreenState extends State<MainShellScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
       body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         selectedItemColor: AppColors.primaryOrange,
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,

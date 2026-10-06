@@ -225,16 +225,13 @@ class _LoginScreenState extends State<LoginScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryOrange,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const FaIcon(
-                        FontAwesomeIcons.store,
-                        color: Colors.white,
-                        size: 24,
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/icons/app_logo.png',
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
                       ),
                     ),
                     const SizedBox(width: 12),
