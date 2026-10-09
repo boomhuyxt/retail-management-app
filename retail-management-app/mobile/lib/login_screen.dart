@@ -33,6 +33,7 @@ class _LoginScreenState extends State<LoginScreen>
   bool _obscureRegPass = true;
   bool _obscureRegConfirmPass = true;
   bool _isLoading = false;
+  bool _isCheckingSession = true;
 
   @override
   void initState() {
@@ -45,6 +46,8 @@ class _LoginScreenState extends State<LoginScreen>
     final hasSession = await AuthService.restoreSession();
     if (hasSession && mounted) {
       Navigator.pushReplacementNamed(context, '/main');
+    } else if (mounted) {
+      setState(() => _isCheckingSession = false);
     }
   }
 
@@ -176,8 +179,8 @@ class _LoginScreenState extends State<LoginScreen>
               });
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Đã cập nhật Server URL: ${ApiConfig.baseUrl}'),
+                const SnackBar(
+                  content: Text('Đã cập nhật cấu hình máy chủ thành công.'),
                 ),
               );
             },
@@ -196,6 +199,15 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingSession) {
+      return const Scaffold(
+        backgroundColor: AppColors.bgLightCream,
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primaryOrange),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.bgLightCream,
       body: SafeArea(

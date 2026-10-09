@@ -35,6 +35,8 @@ class ApiConfig {
 
   static String get loginUrl => '$baseUrl/api/auth/login';
   static String get registerUrl => '$baseUrl/api/auth/register';
+  static String get refreshTokenUrl => '$baseUrl/api/auth/refresh';
+  static String get revokeTokenUrl => '$baseUrl/api/auth/revoke';
   static String get meUrl => '$baseUrl/api/auth/me';
   static String get forgotPasswordUrl => '$baseUrl/api/auth/forgot-password';
   static String get verifyResetCodeUrl => '$baseUrl/api/auth/verify-reset-code';

@@ -95,9 +95,9 @@ class AttendanceLocationService {
       );
     } catch (error) {
       if (error is AttendanceLocationException) rethrow;
-      throw AttendanceLocationException(
+      throw const AttendanceLocationException(
         'location_unavailable',
-        'Không thể lấy vị trí hiện tại: $error',
+        'Không thể xác định vị trí GPS. Vui lòng kiểm tra lại dịch vụ vị trí trên thiết bị.',
       );
     }
   }

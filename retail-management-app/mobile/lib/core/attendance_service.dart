@@ -202,7 +202,7 @@ class AttendanceService {
         );
       }
 
-      final response = await http
+      final response = await AuthService.authenticatedRequest((token) => http
           .post(
             Uri.parse(ApiConfig.verifyQrUrl),
             headers: {
@@ -211,7 +211,7 @@ class AttendanceService {
             },
             body: jsonEncode({'qrPayload': qrPayload.trim()}),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 10)));
 
       Map<String, dynamic> data = {};
       try {
@@ -246,12 +246,12 @@ class AttendanceService {
           errorCode: code.toString(),
         );
       }
-    } catch (e) {
+    } catch (_) {
       return VerifyQrResult(
         isSuccess: false,
         storeCode: '',
         storeName: '',
-        message: 'Lỗi kết nối máy chủ: $e',
+        message: 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng.',
         eligibleShifts: [],
         errorCode: 'network_error',
       );
@@ -280,7 +280,7 @@ class AttendanceService {
 
       final position = await AttendanceLocationService.getCurrentPosition();
 
-      final response = await http
+      final response = await AuthService.authenticatedRequest((token) => http
           .post(
             Uri.parse(ApiConfig.submitAttendanceUrl),
             headers: {
@@ -294,7 +294,7 @@ class AttendanceService {
               'location': position.toJson(),
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 12)));
 
       Map<String, dynamic> data = {};
       try {
@@ -331,7 +331,7 @@ class AttendanceService {
         final title =
             data['title'] ??
             data['message'] ??
-            'Chấm công thất bại (${response.statusCode})';
+            'Chấm công không thành công. Vui lòng thử lại.';
         return SubmitAttendanceResult(
           isSuccess: false,
           message: title.toString(),
@@ -352,10 +352,10 @@ class AttendanceService {
         timestamp: DateTime.now(),
         errorCode: e.code,
       );
-    } catch (e) {
+    } catch (_) {
       return SubmitAttendanceResult(
         isSuccess: false,
-        message: 'Không thể kết nối đến máy chủ: $e',
+        message: 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng.',
         shiftAssignmentId: shiftAssignmentId,
         shiftName: '',
         action: action,
@@ -373,7 +373,7 @@ class AttendanceService {
       final token = await AuthService.getToken();
       if (token == null) return [];
 
-      final response = await http
+      final response = await AuthService.authenticatedRequest((token) => http
           .get(
             Uri.parse('${ApiConfig.shiftHistoryUrl}?limit=$limit'),
             headers: {
@@ -381,7 +381,7 @@ class AttendanceService {
               'Authorization': 'Bearer $token',
             },
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 10)));
 
       if (response.statusCode == 200) {
         final list =

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'core/auth_service.dart';
 import 'home_screen.dart';
 import 'dash_board_screen.dart';
 import 'login_screen.dart';
@@ -6,7 +7,13 @@ import 'forgot_password_screen.dart';
 import 'schedule_screen.dart';
 import 'theme.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  AuthService.onSessionExpired = () {
+    navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
+  };
   runApp(const MyApp());
 }
 
@@ -16,6 +23,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Retail365 Mobile',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

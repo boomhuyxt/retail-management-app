@@ -285,7 +285,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
   /// Card hiển thị từng Ca được phân công
   Widget _buildShiftItemCard(ShiftRecordModel shift) {
     final bool hasCheckOut = shift.checkOutAt != null;
-    final bool isWorking = shift.checkInAt != null && shift.checkOutAt == null;
+    final bool isWorking = shift.checkOutAt == null;
 
     Color statusColor = Colors.orange;
     String statusText = 'Chưa vào ca';
@@ -343,7 +343,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
               const Icon(Icons.access_time_filled, size: 16, color: AppColors.primaryOrange),
               const SizedBox(width: 6),
               Text(
-                'Thời gian: ${shift.checkInAt != null ? DateFormat("HH:mm").format(shift.checkInAt!) : "--:--"} - ${shift.checkOutAt != null ? DateFormat("HH:mm").format(shift.checkOutAt!) : "--:--"}',
+                'Thời gian: ${DateFormat("HH:mm").format(shift.checkInAt)} - ${shift.checkOutAt != null ? DateFormat("HH:mm").format(shift.checkOutAt!) : "--:--"}',
                 style: const TextStyle(fontSize: 13, color: Colors.black87),
               ),
             ],
