@@ -7,10 +7,13 @@ import 'forgot_password_screen.dart';
 import 'schedule_screen.dart';
 import 'theme.dart';
 
+import 'core/api_config.dart';
+
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ApiConfig.loadSavedBaseUrl();
   AuthService.onSessionExpired = () {
     navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
   };

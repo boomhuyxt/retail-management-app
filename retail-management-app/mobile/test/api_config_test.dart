@@ -1,7 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/api_config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   tearDown(() {
     ApiConfig.baseUrl = ApiConfig.defaultBaseUrl;
   });
@@ -26,5 +31,12 @@ void main() {
 
     expect(ApiConfig.baseUrl, 'https://api.example.com');
     expect(ApiConfig.registerUrl, 'https://api.example.com/api/auth/register');
+  });
+
+  test('prepends http:// when scheme is missing', () {
+    ApiConfig.baseUrl = '192.168.2.248:5000';
+
+    expect(ApiConfig.baseUrl, 'http://192.168.2.248:5000');
+    expect(ApiConfig.loginUrl, 'http://192.168.2.248:5000/api/auth/login');
   });
 }

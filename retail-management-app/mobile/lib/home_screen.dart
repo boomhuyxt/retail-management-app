@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'core/api_config.dart';
 import 'core/auth_service.dart';
 import 'theme.dart';
 
@@ -179,6 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 10),
               _buildMenuTile(Icons.badge_outlined, 'Thông tin cá nhân', () {}),
               _buildMenuTile(Icons.history, 'Lịch sử công', () {}),
+              _buildMenuTile(Icons.dns_outlined, 'Cấu hình máy chủ API', _showServerConfigDialog),
               _buildMenuTile(Icons.lock_outline, 'Đổi mật khẩu', () {}),
               _buildMenuTile(Icons.help_outline, 'Trợ giúp & Hỗ trợ', () {}),
 
@@ -201,6 +203,86 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showServerConfigDialog() {
+    final urlController = TextEditingController(text: ApiConfig.baseUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Cấu hình kết nối API Server',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Địa chỉ Backend ASP.NET Core:',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(
+                hintText: 'http://localhost:5000',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  label: const Text('Localhost (USB/Emulator)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => urlController.text = 'http://localhost:5000',
+                ),
+                ActionChip(
+                  label: const Text('Wi-Fi LAN', style: TextStyle(fontSize: 11)),
+                  onPressed: () => urlController.text = 'http://192.168.2.248:5000',
+                ),
+                ActionChip(
+                  label: const Text('Deploy Online', style: TextStyle(fontSize: 11)),
+                  onPressed: () => urlController.text = 'https://www.manage365.io.vn',
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryOrange,
+            ),
+            onPressed: () {
+              setState(() {
+                ApiConfig.baseUrl = urlController.text.trim();
+              });
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Đã cập nhật máy chủ: ${ApiConfig.baseUrl}'),
+                ),
+              );
+            },
+            child: const Text(
+              'Lưu',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }
