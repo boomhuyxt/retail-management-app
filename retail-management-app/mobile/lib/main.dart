@@ -44,10 +44,12 @@ class _MainShellScreenState extends State<MainShellScreen> {
   int _currentIndex = 0;
 
   // Thứ tự các màn hình tương ứng từ trái sang phải
-  final List<Widget> _screens = const [
-    ShiftScheduleScreen(), // Tab 0: Bảng Phân Ca (Màn hình đầu tiên)
-    DashboardQRScreen(), // Tab 1: Chấm Công / QR
-    HomeScreen(), // Tab 2: Profile / Cá Nhân
+  // QUAN TRỌNG: Không dùng const ở đây vì các screen cần đọc AuthService.currentUser
+  // sau khi login, không phải lúc app khởi động (lúc đó currentUser còn null)
+  final List<Widget> _screens = [
+    ShiftScheduleScreen(key: UniqueKey()), // Tab 0: Bảng Phân Ca (Màn hình đầu tiên)
+    DashboardQRScreen(key: UniqueKey()), // Tab 1: Chấm Công / QR
+    HomeScreen(key: UniqueKey()), // Tab 2: Profile / Cá Nhân
   ];
 
   @override

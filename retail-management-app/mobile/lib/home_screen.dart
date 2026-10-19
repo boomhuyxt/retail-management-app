@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'admin_leave_management_screen.dart';
 import 'core/auth_service.dart';
+import 'employee_leave_screen.dart';
 import 'profile_detail_screen.dart'; // Import màn hình Chi tiết thông tin cá nhân
 import 'theme.dart';
 
@@ -12,6 +14,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   UserModel? _user;
+
+  bool get _isAdminOrOwner {
+    final role = (_user?.role ?? '').toLowerCase();
+    return role.contains('admin') || role.contains('owner') || role.contains('chủ cửa hàng');
+  }
 
   @override
   void initState() {
@@ -143,6 +150,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
               // 2. Các mục cài đặt khác
               _buildMenuTile(Icons.history, 'Lịch sử chấm công', () {}),
+              _buildMenuTile(
+                _isAdminOrOwner ? Icons.admin_panel_settings_outlined : Icons.event_note_outlined,
+                _isAdminOrOwner ? 'Quản lý lịch sử nghỉ phép' : 'Đơn xin nghỉ phép',
+                    () {
+                  if (_isAdminOrOwner) {
+                    // Điều hướng sang trang Quản lý nghỉ phép của Admin
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AdminLeaveManagementScreen()),
+                    );
+                  } else {
+                    // Điều hướng sang trang Đơn xin nghỉ phép của Nhân viên
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const EmployeeLeaveScreen()),
+                    );
+                  }
+                },
+              ),
               _buildMenuTile(Icons.lock_outline, 'Đổi mật khẩu', () {}),
               _buildMenuTile(Icons.help_outline, 'Trợ giúp & Hỗ trợ', () {}),
 

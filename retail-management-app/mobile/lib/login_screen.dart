@@ -75,6 +75,7 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = false);
 
     if (result.isSuccess) {
+      debugPrint('>>> [Login] Đăng nhập thành công. Role từ API: "${result.user?.role}"');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

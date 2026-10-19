@@ -1,9 +1,9 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'core/attendance_service.dart';
 import 'core/auth_service.dart';
 import 'theme.dart';
-import 'dart:ui';
 
 class ShiftScheduleScreen extends StatefulWidget {
   const ShiftScheduleScreen({super.key});
@@ -19,24 +19,25 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
   List<ShiftRecordModel> _assignedShifts = [];
 
   bool isAdminOrOwner = false;
-  bool _isMenuOpen = false; // Quản lý trạng thái mở/đóng menu
+  bool _isMenuOpen = false;
+
+  // Danh sách nhân viên quản lý bởi Admin (mặc định trống)
+  final List<Map<String, String>> _employeeList = [];
 
   @override
   void initState() {
     super.initState();
-    _checkUserRole();
+    // 1. Kiểm tra vai trò Admin/Owner trực tiếp, gọn gàng
+    final user = AuthService.currentUser;
+    final role = (user?.role ?? '').toLowerCase();
+    isAdminOrOwner = role.contains('admin') ||
+        role.contains('owner') ||
+        role == 'chủ cửa hàng';
+
+    // 2. Khởi tạo dữ liệu ngày & tải danh sách ca
     _selectedDate = DateTime.now();
     _currentWeekDays = _getWeekDays(_selectedDate);
     _loadAssignedShifts();
-  }
-
-  /// Kiểm tra vai trò của người dùng hiện tại
-  void _checkUserRole() {
-    final user = AuthService.currentUser;
-    final role = user?.role.toLowerCase() ?? '';
-    setState(() {
-      isAdminOrOwner = role == 'admin' || role == 'owner' || role == 'chủ cửa hàng';
-    });
   }
 
   /// Lấy danh sách 7 ngày trong tuần (Từ Thứ 2 đến Chủ Nhật)
@@ -46,7 +47,29 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
     return List.generate(7, (index) => monday.add(Duration(days: index)));
   }
 
-  /// Chuyển tuần (Trước / Sau)
+  /// Tên viết tắt tiếng Việt cho các ngày trong tuần
+  String _getVietnameseWeekday(int weekday) {
+    switch (weekday) {
+      case 1:
+        return 'T2';
+      case 2:
+        return 'T3';
+      case 3:
+        return 'T4';
+      case 4:
+        return 'T5';
+      case 5:
+        return 'T6';
+      case 6:
+        return 'T7';
+      case 7:
+        return 'CN';
+      default:
+        return '';
+    }
+  }
+
+  /// Chuyển sang tuần trước / sau
   void _changeWeek(int weekOffset) {
     setState(() {
       final newDate = _selectedDate.add(Duration(days: weekOffset * 7));
@@ -56,7 +79,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
     _loadAssignedShifts();
   }
 
-  /// Tải danh sách phân công ca làm việc
+  /// Tải danh sách ca làm việc theo ngày đã chọn
   Future<void> _loadAssignedShifts() async {
     setState(() => _isLoading = true);
 
@@ -79,6 +102,288 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
     return date1.year == date2.year &&
         date1.month == date2.month &&
         date1.day == date2.day;
+  }
+
+  // --- MODAL QUẢN LÝ DANH SÁCH NHÂN VIÊN (DÀNH CHO ADMIN) ---
+  void _showEmployeeManagementModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.8,
+              decoration: const BoxDecoration(
+                color: AppColors.bgLightCream,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  // Thanh Header Modal
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Danh Sách Nhân Viên',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.person_add_alt_1, color: AppColors.primaryOrange),
+                              tooltip: 'Thêm nhân viên',
+                              onPressed: () => _showAddOrEditEmployeeDialog(context, null, setModalState),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+
+                  // Danh sách Nhân viên / Màn hình trống
+                  Expanded(
+                    child: _employeeList.isEmpty
+                        ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.people_outline,
+                            size: 56,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Chưa có nhân viên nào trong danh sách',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryOrange,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: () => _showAddOrEditEmployeeDialog(
+                              context,
+                              null,
+                              setModalState,
+                            ),
+                            icon: const Icon(Icons.add, color: Colors.white, size: 18),
+                            label: const Text(
+                              'Thêm nhân viên mới',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                        : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _employeeList.length,
+                      itemBuilder: (context, index) {
+                        final emp = _employeeList[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              const CircleAvatar(
+                                backgroundColor: AppColors.primaryOrange,
+                                child: Icon(Icons.person, color: Colors.white),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${emp['name']} (${emp['id']})',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Chức vụ: ${emp['role']} | SĐT: ${emp['phone']}',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
+                                onPressed: () => _showAddOrEditEmployeeDialog(context, emp, setModalState),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- DIALOG THÊM HOẶC SỬA NHÂN VIÊN ---
+  void _showAddOrEditEmployeeDialog(
+      BuildContext context,
+      Map<String, String>? employee,
+      StateSetter parentSetState,
+      ) {
+    final bool isEdit = employee != null;
+    final nameController = TextEditingController(text: isEdit ? employee['name'] : '');
+    final idController = TextEditingController(text: isEdit ? employee['id'] : '');
+    final roleController = TextEditingController(text: isEdit ? employee['role'] : '');
+    final phoneController = TextEditingController(text: isEdit ? employee['phone'] : '');
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            isEdit ? 'Chỉnh Sửa Nhân Viên' : 'Thêm Nhân Viên Mới',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: idController,
+                  enabled: !isEdit,
+                  decoration: const InputDecoration(
+                    labelText: 'Mã nhân viên (VD: NV003)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Họ và tên',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: roleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Chức vụ / Vị trí',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Số điện thoại',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                idController.dispose();
+                nameController.dispose();
+                roleController.dispose();
+                phoneController.dispose();
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryOrange),
+              onPressed: () {
+                if (nameController.text.trim().isEmpty || idController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Vui lòng nhập đầy đủ thông tin!')),
+                  );
+                  return;
+                }
+
+                parentSetState(() {
+                  if (isEdit) {
+                    employee['name'] = nameController.text.trim();
+                    employee['role'] = roleController.text.trim();
+                    employee['phone'] = phoneController.text.trim();
+                  } else {
+                    _employeeList.add({
+                      'id': idController.text.trim(),
+                      'name': nameController.text.trim(),
+                      'role': roleController.text.trim(),
+                      'phone': phoneController.text.trim(),
+                    });
+                  }
+                });
+
+                idController.dispose();
+                nameController.dispose();
+                roleController.dispose();
+                phoneController.dispose();
+
+                Navigator.pop(dialogContext);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      isEdit ? 'Đã cập nhật thông tin nhân viên!' : 'Đã thêm nhân viên mới!',
+                    ),
+                  ),
+                );
+              },
+              child: Text(
+                isEdit ? 'Cập nhật' : 'Thêm',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -122,7 +427,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
           // 1. GIAO DIỆN CHÍNH MÀN HÌNH LỊCH PHÂN CA
           Column(
             children: [
-              // --- THANH CHỌN TUẦN & THÁNG ---
+              // THANH CHỌN TUẦN & THÁNG
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
@@ -148,7 +453,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
                 ),
               ),
 
-              // --- THANH HIỂN THỊ 7 NGÀY TRONG TUẦN ---
+              // THANH HIỂN THỊ 7 NGÀY TRONG TUẦN
               Container(
                 height: 85,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -205,9 +510,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : AppColors.textDark,
+                                  color: isSelected ? Colors.white : AppColors.textDark,
                                 ),
                               ),
                             ],
@@ -221,7 +524,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
 
               const SizedBox(height: 16),
 
-              // --- BẢNG DANH SÁCH CA LÀM VIỆC ---
+              // BẢNG DANH SÁCH CA LÀM VIỆC
               Expanded(
                 child: Container(
                   width: double.infinity,
@@ -292,7 +595,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
             ],
           ),
 
-          // 2. LỚP PHỦ MỜ (BLUR BACKGROUND) KHI MỞ MENU (CHỈ CHO ADMIN / OWNER)
+          // 2. LỚP PHỦ MỜ (BLUR BACKGROUND) KHI MỞ MENU ADMIN
           if (isAdminOrOwner && _isMenuOpen) ...[
             Positioned.fill(
               child: GestureDetector(
@@ -310,7 +613,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
               ),
             ),
 
-            // 3. MENU TRƯỢT NGANG NẰM BÊN TRÁI NÚT CHÍNH (KHÔNG BỊ OVERFLOW)
+            // 3. MENU TRƯỢT MỞ RỘNG CỦA ADMIN
             Positioned(
               right: 80,
               bottom: 60,
@@ -336,6 +639,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // MỤC 1: THÊM CA LÀM MỚI
                         InkWell(
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                           onTap: () {
@@ -349,17 +653,15 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
                               children: [
                                 Icon(Icons.add_circle_outline, color: AppColors.primaryOrange, size: 20),
                                 SizedBox(width: 10),
-                                Text(
-                                  'Thêm ca làm mới',
-                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                ),
+                                Text('Thêm ca làm mới', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                               ],
                             ),
                           ),
                         ),
                         const Divider(height: 1, thickness: 0.5),
+
+                        // MỤC 2: CHỈNH SỬA CA LÀM
                         InkWell(
-                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
                           onTap: () {
                             setState(() => _isMenuOpen = false);
                             _showEditShiftDialog(context);
@@ -371,10 +673,28 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
                               children: [
                                 Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
                                 SizedBox(width: 10),
-                                Text(
-                                  'Chỉnh sửa ca làm',
-                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                ),
+                                Text('Chỉnh sửa ca làm', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const Divider(height: 1, thickness: 0.5),
+
+                        // MỤC 3: QUẢN LÝ NHÂN VIÊN
+                        InkWell(
+                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                          onTap: () {
+                            setState(() => _isMenuOpen = false);
+                            _showEmployeeManagementModal(context);
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.people_alt_outlined, color: Colors.green, size: 20),
+                                SizedBox(width: 10),
+                                Text('Quản lý nhân viên', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                               ],
                             ),
                           ),
@@ -389,12 +709,12 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
         ],
       ),
 
-      // 4. FLOATING ACTION BUTTON DUY NHẤT (CHỈ HIỂN THỊ KHI LÀ ADMIN/OWNER)
+      // 4. FLOATING ACTION BUTTON (CHỈ CHO ADMIN / OWNER)
       floatingActionButton: isAdminOrOwner
           ? Padding(
         padding: const EdgeInsets.only(bottom: 60.0),
         child: AnimatedRotation(
-          turns: _isMenuOpen ? 0.125 : 0.0, // Xoay 45 độ thành dấu x
+          turns: _isMenuOpen ? 0.125 : 0.0,
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
           child: FloatingActionButton(
@@ -432,18 +752,6 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
               final TimeOfDay? picked = await showTimePicker(
                 context: context,
                 initialTime: isStart ? startTime : endTime,
-                builder: (BuildContext context, Widget? child) {
-                  return Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.light(
-                        primary: AppColors.primaryOrange,
-                        onPrimary: Colors.white,
-                        onSurface: AppColors.textDark,
-                      ),
-                    ),
-                    child: child!,
-                  );
-                },
               );
               if (picked != null) {
                 setDialogState(() {
@@ -463,13 +771,8 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
             }
 
             return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Text(
-                'Thêm ca làm mới',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Thêm ca làm mới', style: TextStyle(fontWeight: FontWeight.bold)),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -477,151 +780,43 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
                   children: [
                     TextField(
                       controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tên nhân viên',
-                        hintText: 'Nhập tên nhân viên',
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Tên nhân viên', border: OutlineInputBorder()),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: idController,
-                      decoration: const InputDecoration(
-                        labelText: 'Mã số nhân viên',
-                        hintText: 'Nhập mã số (VD: NV001)',
-                        prefixIcon: Icon(Icons.badge_outlined),
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Mã số nhân viên', border: OutlineInputBorder()),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: selectedShift,
-                      decoration: const InputDecoration(
-                        labelText: 'Ca làm việc',
-                        prefixIcon: Icon(Icons.work_history_outlined),
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Ca làm việc', border: OutlineInputBorder()),
                       items: shiftOptions.map((String shift) {
-                        return DropdownMenuItem<String>(
-                          value: shift,
-                          child: Text(shift),
-                        );
+                        return DropdownMenuItem<String>(value: shift, child: Text(shift));
                       }).toList(),
                       onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setDialogState(() {
-                            selectedShift = newValue;
-                          });
-                        }
+                        if (newValue != null) setDialogState(() => selectedShift = newValue);
                       },
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Thời gian làm việc',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: InkWell(
                             onTap: () => selectTime(true),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Bắt đầu',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        formatTimeOfDay(startTime),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const Icon(
-                                    Icons.access_time,
-                                    size: 20,
-                                    color: AppColors.primaryOrange,
-                                  ),
-                                ],
-                              ),
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Bắt đầu', border: OutlineInputBorder()),
+                              child: Text(formatTimeOfDay(startTime)),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: InkWell(
                             onTap: () => selectTime(false),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Kết thúc',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        formatTimeOfDay(endTime),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const Icon(
-                                    Icons.access_time,
-                                    size: 20,
-                                    color: AppColors.primaryOrange,
-                                  ),
-                                ],
-                              ),
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Kết thúc', border: OutlineInputBorder()),
+                              child: Text(formatTimeOfDay(endTime)),
                             ),
                           ),
                         ),
@@ -632,50 +827,33 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  onPressed: () {
+                    nameController.dispose();
+                    idController.dispose();
+                    Navigator.of(dialogContext).pop();
+                  },
                   child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
                 ),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryOrange,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryOrange),
                   onPressed: () {
-                    final String name = nameController.text.trim();
-                    final String empId = idController.text.trim();
-
-                    if (name.isEmpty || empId.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Vui lòng điền đầy đủ thông tin!'),
-                        ),
-                      );
-                      return;
-                    }
-
                     final startMinutes = startTime.hour * 60 + startTime.minute;
                     final endMinutes = endTime.hour * 60 + endTime.minute;
 
                     if (endMinutes <= startMinutes) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Thời gian kết thúc phải lớn hơn thời gian bắt đầu!'),
-                        ),
+                        const SnackBar(content: Text('Thời gian kết thúc phải lớn hơn thời gian bắt đầu!')),
                       );
                       return;
                     }
 
+                    nameController.dispose();
+                    idController.dispose();
+
                     Navigator.of(dialogContext).pop();
-                    setState(() {
-                      _loadAssignedShifts();
-                    });
+                    setState(() => _loadAssignedShifts());
                   },
-                  child: const Text(
-                    'Thêm ca',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  child: const Text('Thêm ca', style: TextStyle(color: Colors.white)),
                 ),
               ],
             );
@@ -690,16 +868,9 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            'Chỉnh sửa ca làm',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: const Text(
-            'Chọn danh sách ca làm cần chỉnh sửa hoặc quản lý ca làm hiện tại.',
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Chỉnh sửa ca làm', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: const Text('Chọn danh sách ca làm cần chỉnh sửa hoặc quản lý ca làm hiện tại.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
@@ -798,27 +969,5 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen> {
         ],
       ),
     );
-  }
-
-  /// Chuyển đổi thứ từ số sang chuỗi tiếng Việt gọn
-  String _getVietnameseWeekday(int weekday) {
-    switch (weekday) {
-      case DateTime.monday:
-        return 'T2';
-      case DateTime.tuesday:
-        return 'T3';
-      case DateTime.wednesday:
-        return 'T4';
-      case DateTime.thursday:
-        return 'T5';
-      case DateTime.friday:
-        return 'T6';
-      case DateTime.saturday:
-        return 'T7';
-      case DateTime.sunday:
-        return 'CN';
-      default:
-        return '';
-    }
   }
 }

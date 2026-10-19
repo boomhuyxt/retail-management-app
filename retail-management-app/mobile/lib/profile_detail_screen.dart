@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/core/auth_service.dart';
 import 'theme.dart';
 
 class ProfileDetailScreen extends StatefulWidget {
@@ -20,19 +21,24 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
   late TextEditingController _dobController;
   late TextEditingController _startDateController;
 
-  String _gender = 'Nữ';
+  String _gender = 'Nam';
 
   @override
   void initState() {
     super.initState();
-    // Giả lập dữ liệu hiện tại từ hệ thống
-    _nameController = TextEditingController(text: 'Quỳnh');
-    _emailController = TextEditingController(text: 'balldinhnguyen140905@gmail.com');
-    _phoneController = TextEditingController(text: '0987 654 321');
-    _empIdController = TextEditingController(text: 'NV001');
-    _roleController = TextEditingController(text: 'Nhân viên bán hàng');
-    _dobController = TextEditingController(text: '14/09/2005');
-    _startDateController = TextEditingController(text: '01/03/2026');
+
+    // Lấy user đang đăng nhập hiện tại
+    final user = AuthService.currentUser;
+
+    // Gán dữ liệu động từ tài khoản đang đăng nhập
+    _nameController = TextEditingController(text: user?.displayName ?? '');
+    _emailController = TextEditingController(text: user?.email ?? '');
+    _empIdController = TextEditingController(text: user?.id.toString() ?? '');
+    _roleController = TextEditingController(text: user?.role ?? 'Nhân viên');
+
+    _phoneController = TextEditingController(text: '');
+    _dobController = TextEditingController(text: '');
+    _startDateController = TextEditingController(text: '');
   }
 
   @override
