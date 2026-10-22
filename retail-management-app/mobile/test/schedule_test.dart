@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:mobile/core/auth_service.dart';
 import 'package:mobile/core/schedule_service.dart';
 import 'package:mobile/schedule_screen.dart';
+import 'package:mobile/widgets/wheel_time_picker.dart';
 
 Map<String, dynamic> shiftJson({
   int id = 1,
@@ -202,4 +203,105 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Ca tối'), findsNothing);
   });
+  testWidgets('Manager role shows Phân ca mới button while Employee does not', (
+    tester,
+  ) async {
+    // 1. Employee role
+    AuthService.currentUser = UserModel(
+      id: 101,
+      email: 'employee@test.vn',
+      displayName: 'Nhân viên',
+      role: 'Employee',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShiftScheduleScreen(
+          loadSchedule: (_, _) async => [],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Phân ca mới'), findsNothing);
+
+    // 2. Manager role
+    AuthService.currentUser = UserModel(
+      id: 102,
+      email: 'manager@test.vn',
+      displayName: 'Quản lý',
+      role: 'Manager',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShiftScheduleScreen(
+          loadSchedule: (_, _) async => [],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Phân ca mới'), findsOneWidget);
+  });
+  testWidgets('Shift card displays employee name for manager overview', (
+    tester,
+  ) async {
+    AuthService.currentUser = UserModel(
+      id: 102,
+      email: 'manager@test.vn',
+      displayName: 'Quản lý',
+      role: 'Manager',
+    );
+    final shiftWithEmp = ScheduleShift(
+      assignmentId: 99,
+      employeeId: 55,
+      employeeName: 'Nguyễn Văn A',
+      employeeCode: 'NV-0055',
+      departmentName: 'Bán hàng',
+      name: 'Ca sáng',
+      date: scheduleDate(scheduleToday()),
+      startTime: '08:00',
+      endTime: '17:00',
+      isOvernight: false,
+      status: 'Approved',
+      color: '#f59e0b',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShiftScheduleScreen(
+          loadSchedule: (_, _) async => [shiftWithEmp],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Nguyễn Văn A'), findsOneWidget);
+    expect(find.text('Ca sáng'), findsOneWidget);
+    expect(find.text('08:00 – 17:00'), findsOneWidget);
+  });
+  testWidgets('24-Hour Wheel Picker modal displays 24H badge and initial time', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: ElevatedButton(
+              onPressed: () => show24HourWheelTimePicker(
+                context: context,
+                initialTime: const TimeOfDay(hour: 14, minute: 30),
+              ),
+              child: const Text('Open Picker'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open Picker'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('24H'), findsOneWidget);
+    expect(find.text('14'), findsWidgets);
+    expect(find.text('30'), findsWidgets);
+    expect(find.text('GIỜ (0 - 23)'), findsOneWidget);
+    expect(find.text('PHÚT (00 - 59)'), findsOneWidget);
+  });
 }
+
