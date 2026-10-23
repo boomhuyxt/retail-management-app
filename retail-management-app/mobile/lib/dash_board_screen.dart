@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'core/attendance_service.dart';
+import 'core/auth_service.dart';
 import 'theme.dart';
 
 class DashboardQRScreen extends StatefulWidget {
@@ -18,10 +21,55 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
 
   final List<ShiftRecordModel> _shiftHistory = [];
 
+  // Biến phục vụ phân quyền Role & Mã QR Admin
+  bool _isAdminOrOwner = false;
+  String _adminQrData = '';
+  int _qrSecondsLeft = 30;
+  Timer? _qrTimer;
+
   @override
   void initState() {
     super.initState();
+    _checkUserRole();
     _loadHistory();
+  }
+
+  void _checkUserRole() {
+    final user = AuthService.currentUser;
+    final role = user?.role.toLowerCase() ?? '';
+    final isAdmin = role == 'admin' || role == 'owner' || role == 'chủ cửa hàng';
+
+    setState(() {
+      _isAdminOrOwner = isAdmin;
+    });
+
+    if (isAdmin) {
+      _generateNewAdminQrCode();
+      _startAdminQrTimer();
+    }
+  }
+
+  /// Sinh chuỗi mã QR động dành cho Admin/Chủ cửa hàng
+  void _generateNewAdminQrCode() {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    setState(() {
+      _adminQrData = 'RETAIL365_KIOSK_STORE_01_$timestamp';
+      _qrSecondsLeft = 30;
+    });
+  }
+
+  /// Bộ đếm ngược 30s tự động đổi mã QR chống chụp ảnh gian lận
+  void _startAdminQrTimer() {
+    _qrTimer?.cancel();
+    _qrTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_qrSecondsLeft > 1) {
+        setState(() {
+          _qrSecondsLeft--;
+        });
+      } else {
+        _generateNewAdminQrCode();
+      }
+    });
   }
 
   Future<void> _loadHistory() async {
@@ -38,6 +86,7 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
 
   @override
   void dispose() {
+    _qrTimer?.cancel();
     _scannerController.dispose();
     super.dispose();
   }
@@ -85,9 +134,9 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
   }
 
   Future<void> _showShiftSelectionBottomSheet(
-    VerifyQrResult verifyResult,
-    String qrPayload,
-  ) async {
+      VerifyQrResult verifyResult,
+      String qrPayload,
+      ) async {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -183,7 +232,7 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                 )
               else
                 ...verifyResult.eligibleShifts.map(
-                  (shift) => _buildShiftCard(shift, qrPayload, ctx),
+                      (shift) => _buildShiftCard(shift, qrPayload, ctx),
                 ),
 
               const SizedBox(height: 12),
@@ -195,10 +244,10 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
   }
 
   Widget _buildShiftCard(
-    EligibleShiftModel shift,
-    String qrPayload,
-    BuildContext bottomSheetContext,
-  ) {
+      EligibleShiftModel shift,
+      String qrPayload,
+      BuildContext bottomSheetContext,
+      ) {
     Color statusColor = Colors.grey;
     String statusText = 'Chưa vào ca';
     if (shift.status == 'CheckedIn') {
@@ -359,11 +408,11 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
   }
 
   Future<void> _handleSubmit(
-    int? shiftAssignmentId,
-    String action,
-    String qrPayload,
-    BuildContext bottomSheetContext,
-  ) async {
+      int? shiftAssignmentId,
+      String action,
+      String qrPayload,
+      BuildContext bottomSheetContext,
+      ) async {
     Navigator.pop(bottomSheetContext); // Đóng BottomSheet
 
     showDialog(
@@ -387,8 +436,8 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
       final locationMessage = result.location == null
           ? ''
           : '\nVị trí hợp lệ: cách cửa hàng ${result.location!.distanceMeters.toStringAsFixed(1)}m '
-                '(bán kính ${result.location!.allowedRadiusMeters.toStringAsFixed(0)}m, '
-                'sai số GPS ${result.location!.accuracyMeters.toStringAsFixed(1)}m).';
+          '(bán kính ${result.location!.allowedRadiusMeters.toStringAsFixed(0)}m, '
+          'sai số GPS ${result.location!.accuracyMeters.toStringAsFixed(1)}m).';
       _showSuccessDialog(
         title: action == 'CHECK_IN'
             ? 'Check-in thành công!'
@@ -538,9 +587,9 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
     return Scaffold(
       backgroundColor: AppColors.bgLightCream,
       appBar: AppBar(
-        title: const Text(
-          'Điểm Danh QR Theo Ca',
-          style: TextStyle(
+        title: Text(
+          _isAdminOrOwner ? 'Mã QR Trạm Chấm Công' : 'Điểm Danh QR Theo Ca',
+          style: const TextStyle(
             color: AppColors.textDark,
             fontWeight: FontWeight.bold,
           ),
@@ -548,7 +597,9 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        actions: [
+        actions: _isAdminOrOwner
+            ? []
+            : [
           IconButton(
             icon: const Icon(Icons.keyboard, color: AppColors.primaryOrange),
             tooltip: 'Nhập mã QR thủ công',
@@ -566,69 +617,172 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // MÀN HÌNH SCAN QR
-              Container(
-                height: 280,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.primaryOrange, width: 2),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      MobileScanner(
-                        controller: _scannerController,
-                        onDetect: _onDetect,
+              // 1. NẾU LÀ ADMIN / CHỦ CỬA HÀNG -> HIỂN THỊ MÃ QR DÀNH CHO NHÂN VIÊN QUÉT
+              if (_isAdminOrOwner) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                      Container(
-                        width: 200,
-                        height: 200,
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: _isProcessing
-                                ? Colors.green
-                                : AppColors.primaryOrange,
-                            width: 3,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'MÃ QR ĐIỂM DANH CỬA HÀNG',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
                         ),
                       ),
-                      if (_isProcessing)
-                        Container(
-                          color: Colors.black54,
-                          child: const Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                CircularProgressIndicator(
-                                  color: AppColors.primaryOrange,
-                                ),
-                                SizedBox(height: 12),
-                                Text(
-                                  'Đang xác thực mã QR...',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Cho nhân viên quét mã này bằng ứng dụng để check-in / check-out',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.primaryOrange.withValues(alpha: 0.4),
+                            width: 2,
+                          ),
+                        ),
+                        child: QrImageView(
+                          data: _adminQrData,
+                          version: QrVersions.auto,
+                          size: 200.0,
+                          foregroundColor: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primaryOrange,
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Làm mới mã sau $_qrSecondsLeft giây',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryOrange,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.primaryOrange),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
+                        onPressed: () {
+                          _generateNewAdminQrCode();
+                          _startAdminQrTimer();
+                        },
+                        icon: const Icon(
+                          Icons.refresh,
+                          size: 18,
+                          color: AppColors.primaryOrange,
+                        ),
+                        label: const Text(
+                          'Tạo mã mới ngay',
+                          style: TextStyle(
+                            color: AppColors.primaryOrange,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 12),
-              const Text(
-                'Hướng camera về phía mã QR động tại Kiosk cửa hàng để chọn ca chấm công',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
+              ]
+              // 2. NẾU LÀ NHÂN VIÊN -> HIỂN THỊ CAMERA QUÉT QR MẶC ĐỊNH
+              else ...[
+                Container(
+                  height: 280,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.primaryOrange, width: 2),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        MobileScanner(
+                          controller: _scannerController,
+                          onDetect: _onDetect,
+                        ),
+                        Container(
+                          width: 200,
+                          height: 200,
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: _isProcessing
+                                  ? Colors.green
+                                  : AppColors.primaryOrange,
+                              width: 3,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        if (_isProcessing)
+                          Container(
+                            color: Colors.black54,
+                            child: const Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(
+                                    color: AppColors.primaryOrange,
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'Đang xác thực mã QR...',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Hướng camera về phía mã QR động tại Kiosk cửa hàng để chọn ca chấm công',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ],
 
               const SizedBox(height: 20),
 
@@ -663,113 +817,113 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                     Expanded(
                       child: _isLoadingHistory
                           ? const Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.primaryOrange,
-                              ),
-                            )
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryOrange,
+                        ),
+                      )
                           : _shiftHistory.isEmpty
                           ? const Center(
-                              child: Text(
-                                'Chưa có lịch sử chấm công ca nào',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            )
+                        child: Text(
+                          'Chưa có lịch sử chấm công ca nào',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
                           : ListView.builder(
-                              itemCount: _shiftHistory.length,
-                              itemBuilder: (context, index) {
-                                final item = _shiftHistory[index];
-                                final hasCheckOut = item.checkOutAt != null;
+                        itemCount: _shiftHistory.length,
+                        itemBuilder: (context, index) {
+                          final item = _shiftHistory[index];
+                          final hasCheckOut = item.checkOutAt != null;
 
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.03,
-                                        ),
-                                        blurRadius: 6,
-                                      ),
-                                    ],
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(
+                                    alpha: 0.03,
                                   ),
-                                  child: Row(
-                                    children: [
-                                      CircleAvatar(
-                                        backgroundColor:
-                                            (hasCheckOut
-                                                    ? Colors.green
-                                                    : Colors.blue)
-                                                .withValues(alpha: 0.1),
-                                        child: Icon(
-                                          hasCheckOut
-                                              ? Icons.check_circle
-                                              : Icons.timer,
-                                          color: hasCheckOut
-                                              ? Colors.green
-                                              : Colors.blue,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '${item.shiftName} (${item.shiftDate})',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              'Vào: ${DateFormat("HH:mm - dd/MM").format(item.checkInAt)}${item.checkOutAt != null ? " • Ra: ${DateFormat("HH:mm - dd/MM").format(item.checkOutAt!)}" : " • Đang làm việc..."}',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color:
-                                              (hasCheckOut
-                                                      ? Colors.green
-                                                      : Colors.blue)
-                                                  .withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          hasCheckOut
-                                              ? '${item.actualHours ?? 0}h'
-                                              : 'Trong ca',
-                                          style: TextStyle(
-                                            color: hasCheckOut
-                                                ? Colors.green
-                                                : Colors.blue,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
+                                  blurRadius: 6,
+                                ),
+                              ],
                             ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor:
+                                  (hasCheckOut
+                                      ? Colors.green
+                                      : Colors.blue)
+                                      .withValues(alpha: 0.1),
+                                  child: Icon(
+                                    hasCheckOut
+                                        ? Icons.check_circle
+                                        : Icons.timer,
+                                    color: hasCheckOut
+                                        ? Colors.green
+                                        : Colors.blue,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${item.shiftName} (${item.shiftDate})',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Vào: ${DateFormat("HH:mm - dd/MM").format(item.checkInAt)}${item.checkOutAt != null ? " • Ra: ${DateFormat("HH:mm - dd/MM").format(item.checkOutAt!)}" : " • Đang làm việc..."}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                    (hasCheckOut
+                                        ? Colors.green
+                                        : Colors.blue)
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(
+                                      6,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    hasCheckOut
+                                        ? '${item.actualHours ?? 0}h'
+                                        : 'Trong ca',
+                                    style: TextStyle(
+                                      color: hasCheckOut
+                                          ? Colors.green
+                                          : Colors.blue,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),

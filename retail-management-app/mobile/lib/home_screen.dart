@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'admin_leave_management_screen.dart';
 import 'core/api_config.dart';
 import 'core/auth_service.dart';
+import 'employee_leave_screen.dart';
+import 'profile_detail_screen.dart'; // Import màn hình Chi tiết thông tin cá nhân
 import 'theme.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -12,6 +15,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   UserModel? _user;
+
+  bool get _isAdminOrOwner {
+    final role = (_user?.role ?? '').toLowerCase();
+    return role.contains('admin') || role.contains('owner') || role.contains('chủ cửa hàng');
+  }
 
   @override
   void initState() {
@@ -46,8 +54,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final displayName = _user?.displayName.isNotEmpty == true ? _user!.displayName : 'Nhân viên';
-    final email = _user?.email.isNotEmpty == true ? _user!.email : 'employee@retail365.com';
+    final displayName = _user?.displayName.isNotEmpty == true ? _user!.displayName : 'Quỳnh';
+    final email = _user?.email.isNotEmpty == true ? _user!.email : 'balldinhnguyen140905@gmail.com';
     final role = _user?.role.isNotEmpty == true ? _user!.role : 'Employee';
 
     return Scaffold(
@@ -120,56 +128,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              const SizedBox(height: 20),
-
-              // THÔNG TIN CA LÀM HÔM NAY
-              const Text(
-                'Ca làm việc hôm nay',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.primaryOrange, AppColors.primaryOrange.withValues(alpha: 0.8)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Ca Sáng (08:00 - 16:00)',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        Icon(Icons.access_time_filled, color: Colors.white),
-                      ],
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Cửa hàng: Retail365 - Quận 1',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
-                    SizedBox(height: 12),
-                    Divider(color: Colors.white24, height: 1),
-                    SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Trạng thái:', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text('Đã kết nối Hệ thống QR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
               const SizedBox(height: 24),
 
               // DANH MỤC THÔNG TIN & CÀI ĐẶT
@@ -178,9 +136,42 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark),
               ),
               const SizedBox(height: 10),
-              _buildMenuTile(Icons.badge_outlined, 'Thông tin cá nhân', () {}),
-              _buildMenuTile(Icons.history, 'Lịch sử công', () {}),
+
+              // 1. Thông tin cá nhân (Đã kết nối điều hướng)
+              _buildMenuTile(
+                Icons.badge_outlined,
+                'Thông tin cá nhân',
+                    () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfileDetailScreen()),
+                  );
+                },
+              ),
+
+              // 2. Các mục cài đặt khác
+              _buildMenuTile(Icons.history, 'Lịch sử chấm công', () {}),
+              _buildMenuTile(
+                _isAdminOrOwner ? Icons.admin_panel_settings_outlined : Icons.event_note_outlined,
+                _isAdminOrOwner ? 'Quản lý lịch sử nghỉ phép' : 'Đơn xin nghỉ phép',
+                    () {
+                  if (_isAdminOrOwner) {
+                    // Điều hướng sang trang Quản lý nghỉ phép của Admin
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AdminLeaveManagementScreen()),
+                    );
+                  } else {
+                    // Điều hướng sang trang Đơn xin nghỉ phép của Nhân viên
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const EmployeeLeaveScreen()),
+                    );
+                  }
+                },
+              ),
               _buildMenuTile(Icons.dns_outlined, 'Cấu hình máy chủ API', _showServerConfigDialog),
+
               _buildMenuTile(Icons.lock_outline, 'Đổi mật khẩu', () {}),
               _buildMenuTile(Icons.help_outline, 'Trợ giúp & Hỗ trợ', () {}),
 

@@ -23,12 +23,12 @@ class UserModel {
           : int.tryParse(json['id'].toString()) ?? 0,
       email: json['email'] ?? '',
       displayName: json['displayName'] ?? '',
-      role: json['role'] ?? 'Employee',
+      role: json['role'] ?? 'Nhân viên',
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'email': email, 'displayName': displayName, 'role': role};
+    return {'id': id, 'email': email, 'displayName': displayName, 'role': role,};
   }
 }
 
