@@ -135,7 +135,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 'Tài khoản & Cài đặt',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark),
               ),
-              const SizedBox(height: 10),
 
               // 1. Thông tin cá nhân (Đã kết nối điều hướng)
               _buildMenuTile(
@@ -162,14 +161,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       MaterialPageRoute(builder: (context) => const AdminLeaveManagementScreen()),
                     );
                   } else {
-                    // Điều hướng sang trang Đơn xin nghỉ phép của Nhân viên
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const EmployeeLeaveScreen()),
-                    );
+                    // Điều hướng sang trang Đơn xin nghỉ phép của Nhân viên (có thể dùng named route)
+                    Navigator.pushNamed(context, '/leave-requests');
                   }
                 },
               ),
+
               _buildMenuTile(Icons.dns_outlined, 'Cấu hình máy chủ API', _showServerConfigDialog),
 
               _buildMenuTile(Icons.lock_outline, 'Đổi mật khẩu', () {}),

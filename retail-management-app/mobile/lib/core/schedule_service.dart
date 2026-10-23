@@ -111,6 +111,8 @@ class ScheduleShift {
   final String? note;
   final DateTime? checkInAt;
   final DateTime? checkOutAt;
+  final bool isOnLeave;
+  final String? leaveStatus;
 
   const ScheduleShift({
     required this.assignmentId,
@@ -128,6 +130,8 @@ class ScheduleShift {
     this.note,
     this.checkInAt,
     this.checkOutAt,
+    this.isOnLeave = false,
+    this.leaveStatus,
   });
 
   factory ScheduleShift.fromJson(Map<String, dynamic> json) {
@@ -148,10 +152,14 @@ class ScheduleShift {
       note: json['note'] as String?,
       checkInAt: DateTime.tryParse(attendance?['checkInAt'] as String? ?? ''),
       checkOutAt: DateTime.tryParse(attendance?['checkOutAt'] as String? ?? ''),
+      isOnLeave: json['isOnLeave'] == true,
+      leaveStatus: json['leaveStatus'] as String?,
     );
   }
 
-  String get statusLabel => status == 'Cancelled'
+  String get statusLabel => isOnLeave
+      ? 'Đã duyệt nghỉ phép'
+      : status == 'Cancelled'
       ? 'Đã hủy'
       : checkOutAt != null
       ? 'Đã hoàn thành'
@@ -347,5 +355,38 @@ class ScheduleService {
     if (response.statusCode != 204 && response.statusCode != 200) {
       throw Exception('Không thể hủy ca làm (${response.statusCode}).');
     }
+  }
+
+  static Future<ScheduleShift> updateAssignment({
+    required int assignmentId,
+    String? shiftName,
+    String? startTime,
+    String? endTime,
+    bool? isOvernight,
+    String? note,
+    http.Client? client,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/shift-assignments/$assignmentId');
+    final body = jsonEncode({
+      if (shiftName != null) 'shiftName': shiftName,
+      if (startTime != null) 'startTime': startTime,
+      if (endTime != null) 'endTime': endTime,
+      if (isOvernight != null) 'isOvernight': isOvernight,
+      if (note != null) 'note': note,
+    });
+    final response = await AuthService.authenticatedRequest(
+      (token) => (client != null
+              ? client.put(uri, headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: body)
+              : http.put(uri, headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: body))
+          .timeout(const Duration(seconds: 15)),
+    );
+    Map<String, dynamic>? payload;
+    try {
+      payload = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    } catch (_) {}
+    if (response.statusCode != 200 || payload == null) {
+      throw Exception(payload?['title'] ?? 'Không thể cập nhật phân ca (${response.statusCode}).');
+    }
+    return ScheduleShift.fromJson(payload);
   }
 }

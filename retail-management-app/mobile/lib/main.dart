@@ -1,3 +1,4 @@
+import 'leave_requests_screen.dart';
 import 'package:flutter/material.dart';
 import 'core/auth_service.dart';
 import 'home_screen.dart';
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/main': (context) => const MainShellScreen(),
+        '/leave-requests': (context) => const LeaveRequestsScreen(),
       },
     );
   }

@@ -33,6 +33,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
   bool _loading = true;
   String? _error;
   int _request = 0;
+  bool _isFabMenuOpen = false;
 
   // Dành cho Quản lý / Chủ cửa hàng
   int? _filterEmployeeId;
@@ -230,7 +231,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
     ScheduleShift? selfShift;
 
     for (final s in _shifts) {
-      if (s.status == 'Cancelled') continue;
+      if (s.status == 'Cancelled' || s.isOnLeave) continue;
       final dateParts = s.date.split('-');
       if (dateParts.length != 3) continue;
       final y = int.tryParse(dateParts[0]) ?? 0;
@@ -996,6 +997,144 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
     }
   }
 
+  void _showEmployeeManagementSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(title: Text('Chọn nhân viên để xem lịch')),
+            ListTile(
+              leading: const Icon(Icons.groups_outlined),
+              title: const Text('Tất cả nhân viên'),
+              selected: _filterEmployeeId == null,
+              onTap: () {
+                Navigator.pop(sheetContext);
+                setState(() => _filterEmployeeId = null);
+                _load();
+              },
+            ),
+            ..._employees.map((employee) => ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: Text(employee.displayName),
+                  subtitle: Text(employee.departmentName ?? employee.code),
+                  selected: _filterEmployeeId == employee.id,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    setState(() => _filterEmployeeId = employee.id);
+                    _load();
+                  },
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditShiftPicker() {
+    final candidates = _shifts.where((shift) =>
+        shift.date == scheduleDate(_selectedDate) && !shift.isOnLeave).toList();
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ngày này chưa có ca để chỉnh sửa.')),
+      );
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(title: Text('Chọn ca cần chỉnh sửa')),
+            ...candidates.map((shift) => ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: Text(shift.name),
+                  subtitle: Text('${shift.employeeName ?? 'NV-${shift.employeeId}'} · ${shift.startTime}–${shift.endTime}'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _editShift(shift);
+                  },
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editShift(ScheduleShift shift) async {
+    final name = TextEditingController(text: shift.name);
+    final start = TextEditingController(text: shift.startTime);
+    final end = TextEditingController(text: shift.endTime);
+    final note = TextEditingController(text: shift.note ?? '');
+    var saving = false;
+    try {
+      final save = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Chỉnh sửa ca làm'),
+          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: name, decoration: const InputDecoration(labelText: 'Tên ca')),
+            TextField(controller: start, decoration: const InputDecoration(labelText: 'Giờ bắt đầu (HH:mm)')),
+            TextField(controller: end, decoration: const InputDecoration(labelText: 'Giờ kết thúc (HH:mm)')),
+            TextField(controller: note, decoration: const InputDecoration(labelText: 'Ghi chú')),
+          ])),
+          actions: [
+            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext, false), child: const Text('Hủy')),
+            FilledButton(
+              onPressed: saving ? null : () async {
+                setDialogState(() => saving = true);
+                try {
+                  await ScheduleService.updateAssignment(
+                    assignmentId: shift.assignmentId,
+                    shiftName: name.text.trim(),
+                    startTime: start.text.trim(),
+                    endTime: end.text.trim(),
+                    isOvernight: end.text.trim().compareTo(start.text.trim()) < 0,
+                    note: note.text.trim(),
+                  );
+                  if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                } catch (error) {
+                  setDialogState(() => saving = false);
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+                    );
+                  }
+                }
+              },
+              child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Lưu thay đổi'),
+            ),
+          ],
+        )),
+      );
+      if (save == true && mounted) _load();
+    } finally {
+      name.dispose();
+      start.dispose();
+      end.dispose();
+      note.dispose();
+    }
+  }
+
+  Widget _quickAction(String label, IconData icon, VoidCallback onTap) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: FloatingActionButton.extended(
+          heroTag: label,
+          onPressed: () {
+            setState(() => _isFabMenuOpen = false);
+            onTap();
+          },
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.textDark,
+          icon: Icon(icon, color: AppColors.primaryOrange),
+          label: Text(label),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final days = List.generate(7, (i) => _monday.add(Duration(days: i)));
@@ -1021,17 +1160,23 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
         ],
       ),
       floatingActionButton: _isManager
-          ? FloatingActionButton.extended(
-              onPressed: _openAssignShiftSheet,
-              backgroundColor: AppColors.primaryOrange,
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text(
-                'Phân ca mới',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (_isFabMenuOpen) ...[
+                  _quickAction('Thêm ca làm mới', Icons.add_circle_outline, _openAssignShiftSheet),
+                  _quickAction('Chỉnh sửa ca làm', Icons.edit_outlined, _showEditShiftPicker),
+                  _quickAction('Quản lý nhân viên', Icons.groups_outlined, _showEmployeeManagementSheet),
+                ],
+                FloatingActionButton(
+                  heroTag: 'schedule-actions',
+                  tooltip: 'Thao tác phân ca',
+                  backgroundColor: AppColors.primaryOrange,
+                  onPressed: () => setState(() => _isFabMenuOpen = !_isFabMenuOpen),
+                  child: Icon(_isFabMenuOpen ? Icons.close : Icons.add, color: Colors.white),
                 ),
-              ),
+              ],
             )
           : null,
       body: SafeArea(
@@ -1101,7 +1246,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                 ),
                 Flexible(
                   child: Text(
-                    '${DateFormat('dd/MM').format(days.first)} – ${DateFormat('dd/MM/yyyy').format(days.last)}',
+                    'Tháng ${DateFormat('MM/yyyy').format(_selectedDate)}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1207,7 +1352,12 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
 
             // Danh sách ca làm việc
             Expanded(
-              child: RefreshIndicator(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: RefreshIndicator(
                 onRefresh: _load,
                 child: _loading
                     ? ListView(
@@ -1260,8 +1410,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                                   padding: const EdgeInsets.all(32),
                                   child: Column(
                                     children: [
+                                      const Icon(Icons.event_available_outlined, size: 42, color: Colors.black26),
+                                      const SizedBox(height: 12),
                                       const Text(
-                                        'Chưa được phân ca trong ngày này.',
+                                        'Không có ca làm việc nào được phân công',
                                         textAlign: TextAlign.center,
                                       ),
                                       if (_isManager) ...[
@@ -1284,6 +1436,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                               ]
                             : shifts.map(_card).toList(),
                       ),
+              ),
               ),
             ),
           ],
@@ -1350,7 +1503,13 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                   ),
                 ),
                 // Nút hủy ca cho Quản lý
-                if (_isManager && shift.status != 'Cancelled')
+                if (_isManager && !shift.isOnLeave)
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
+                    tooltip: 'Chỉnh sửa ca làm',
+                    onPressed: () => _editShift(shift),
+                  ),
+                if (_isManager && shift.status != 'Cancelled' && !shift.isOnLeave)
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                     tooltip: 'Hủy phân ca',

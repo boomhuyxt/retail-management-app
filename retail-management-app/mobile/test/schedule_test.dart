@@ -94,6 +94,29 @@ void main() {
       client.close();
     },
   );
+  test('Update assignment sends PUT to the scheduling API', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'PUT');
+      expect(request.url.path, '/api/shift-assignments/1');
+      expect(request.headers['Authorization'], 'Bearer test-token');
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['shiftName'], 'Ca tối mới');
+      expect(body['startTime'], '21:00');
+      expect(body['endTime'], '05:00');
+      expect(body['isOvernight'], true);
+      return http.Response.bytes(utf8.encode(jsonEncode(shiftJson())), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+    });
+    final result = await ScheduleService.updateAssignment(
+      assignmentId: 1,
+      shiftName: 'Ca tối mới',
+      startTime: '21:00',
+      endTime: '05:00',
+      isOvernight: true,
+      client: client,
+    );
+    expect(result.assignmentId, 1);
+    client.close();
+  });
   test('API errors are surfaced instead of an empty schedule', () async {
     final client = MockClient(
       (_) async => http.Response('{"title":"Unavailable"}', 503),
@@ -152,7 +175,7 @@ void main() {
       await tester.tap(find.byTooltip('Tải lại lịch'));
       await tester.pumpAndSettle();
       expect(find.text('Ca tối'), findsNothing);
-      expect(find.text('Chưa được phân ca trong ngày này.'), findsOneWidget);
+      expect(find.byIcon(Icons.event_available_outlined), findsOneWidget);
     },
   );
   testWidgets('Network error exposes retry and recovers', (tester) async {
@@ -173,7 +196,7 @@ void main() {
     await tester.tap(find.text('Thử lại'));
     await tester.pumpAndSettle();
     expect(find.text('Lỗi mạng'), findsNothing);
-    expect(find.text('Chưa được phân ca trong ngày này.'), findsOneWidget);
+    expect(find.byIcon(Icons.event_available_outlined), findsOneWidget);
   });
   testWidgets('Late previous-week response cannot replace current week', (
     tester,
@@ -221,7 +244,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Phân ca mới'), findsNothing);
+    expect(find.byTooltip('Thao tác phân ca'), findsNothing);
 
     // 2. Manager role
     AuthService.currentUser = UserModel(
@@ -238,7 +261,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Phân ca mới'), findsOneWidget);
+    expect(find.byTooltip('Thao tác phân ca'), findsOneWidget);
   });
   testWidgets('Shift card displays employee name for manager overview', (
     tester,
