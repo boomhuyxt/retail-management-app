@@ -1,3 +1,4 @@
+import 'leave_requests_screen.dart';
 import 'package:flutter/material.dart';
 import 'core/auth_service.dart';
 import 'home_screen.dart';
@@ -7,10 +8,13 @@ import 'forgot_password_screen.dart';
 import 'schedule_screen.dart';
 import 'theme.dart';
 
+import 'core/api_config.dart';
+
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ApiConfig.loadSavedBaseUrl();
   AuthService.onSessionExpired = () {
     navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
   };
@@ -35,6 +39,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/main': (context) => const MainShellScreen(),
+        '/leave-requests': (context) => const LeaveRequestsScreen(),
       },
     );
   }
@@ -52,10 +57,12 @@ class _MainShellScreenState extends State<MainShellScreen> {
   int _currentIndex = 0;
 
   // Thứ tự các màn hình tương ứng từ trái sang phải
-  final List<Widget> _screens = const [
-    ShiftScheduleScreen(), // Tab 0: Bảng Phân Ca (Màn hình đầu tiên)
-    DashboardQRScreen(), // Tab 1: Chấm Công / QR
-    HomeScreen(), // Tab 2: Profile / Cá Nhân
+  // QUAN TRỌNG: Không dùng const ở đây vì các screen cần đọc AuthService.currentUser
+  // sau khi login, không phải lúc app khởi động (lúc đó currentUser còn null)
+  final List<Widget> _screens = [
+    ShiftScheduleScreen(key: UniqueKey()), // Tab 0: Bảng Phân Ca (Màn hình đầu tiên)
+    DashboardQRScreen(key: UniqueKey()), // Tab 1: Chấm Công / QR
+    HomeScreen(key: UniqueKey()), // Tab 2: Profile / Cá Nhân
   ];
 
   @override

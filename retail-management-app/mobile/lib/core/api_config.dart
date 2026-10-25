@@ -1,5 +1,8 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
 class ApiConfig {
   static const String deployedBaseUrl = 'https://www.manage365.io.vn';
+  static const String _storageKey = 'custom_api_base_url';
 
   /// Có thể ghi đè khi build bằng:
   /// `flutter build apk --dart-define=API_BASE_URL=https://example.com`
@@ -16,11 +19,34 @@ class ApiConfig {
 
   static set baseUrl(String value) {
     _baseUrl = _normalizeBaseUrl(value);
+    _persistBaseUrl(_baseUrl);
   }
 
-  /// Chấp nhận domain gốc, URL Swagger và URL có dấu gạch chéo cuối.
+  static Future<void> _persistBaseUrl(String url) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_storageKey, url);
+    } catch (_) {}
+  }
+
+  static Future<void> loadSavedBaseUrl() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_storageKey);
+      if (saved != null && saved.trim().isNotEmpty) {
+        _baseUrl = _normalizeBaseUrl(saved);
+      }
+    } catch (_) {}
+  }
+
+  /// Chấp nhận domain gốc, URL Swagger, URL có dấu gạch chéo cuối, và tự động thêm http:// nếu thiếu giao thức.
   static String _normalizeBaseUrl(String value) {
     var normalized = value.trim().replaceFirst(RegExp(r'/+$'), '');
+    if (normalized.isNotEmpty &&
+        !normalized.startsWith('http://') &&
+        !normalized.startsWith('https://')) {
+      normalized = 'http://$normalized';
+    }
     const swaggerSuffixes = ['/swagger/index.html', '/swagger/v1/swagger.json'];
 
     for (final suffix in swaggerSuffixes) {
