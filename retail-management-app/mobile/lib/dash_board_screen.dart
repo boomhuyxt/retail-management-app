@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -37,7 +37,7 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
   void _checkUserRole() {
     final user = AuthService.currentUser;
     final role = user?.role.toLowerCase() ?? '';
-    final isAdmin = role == 'admin' || role == 'owner' || role == 'chủ cửa hàng';
+    final isAdmin = role == 'admin' || role == 'owner' || role == 'chủ cửa hàng' || role == 'manager';
 
     setState(() {
       _isAdminOrOwner = isAdmin;
@@ -275,30 +275,21 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                shift.shiftName,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: AppColors.textDark,
+              Expanded(
+                child: Text(
+                  shift.shiftName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark),
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  statusText,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                child: Text(statusText, style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -307,9 +298,13 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
             children: [
               const Icon(Icons.access_time, size: 14, color: Colors.grey),
               const SizedBox(width: 4),
-              Text(
-                'Khung giờ: ${shift.startTime} - ${shift.endTime}${shift.isOvernight ? " (Qua đêm)" : ""}',
-                style: const TextStyle(fontSize: 13, color: Colors.black87),
+              Expanded(
+                child: Text(
+                  '${shift.startTime} - ${shift.endTime}${shift.isOvernight ? "\u0020(qua \u0111\u00eam)" : ""}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                ),
               ),
             ],
           ),
@@ -663,7 +658,7 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                         child: QrImageView(
                           data: _adminQrData,
                           version: QrVersions.auto,
-                          size: 200.0,
+                          size: (MediaQuery.sizeOf(context).width - 76).clamp(120.0, 200.0).toDouble(),
                           foregroundColor: AppColors.textDark,
                         ),
                       ),

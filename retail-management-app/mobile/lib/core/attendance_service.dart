@@ -186,6 +186,57 @@ class ShiftRecordModel {
   }
 }
 
+class AdminAttendanceHistoryModel extends ShiftRecordModel {
+  final int employeeId;
+  final String employeeName;
+  final String? employeeEmail;
+
+  AdminAttendanceHistoryModel({
+    required super.attendanceId,
+    required super.shiftAssignmentId,
+    required super.shiftName,
+    required super.shiftDate,
+    required super.checkInAt,
+    super.checkOutAt,
+    super.actualHours,
+    required super.status,
+    required this.employeeId,
+    required this.employeeName,
+    this.employeeEmail,
+  });
+
+  factory AdminAttendanceHistoryModel.fromJson(Map<String, dynamic> json) {
+    final base = ShiftRecordModel.fromJson(json);
+    return AdminAttendanceHistoryModel(
+      attendanceId: base.attendanceId,
+      shiftAssignmentId: base.shiftAssignmentId,
+      shiftName: base.shiftName,
+      shiftDate: base.shiftDate,
+      checkInAt: base.checkInAt,
+      checkOutAt: base.checkOutAt,
+      actualHours: base.actualHours,
+      status: base.status,
+      employeeId: _parseNullableInt(json['employeeId']) ?? 0,
+      employeeName: json['employeeName']?.toString() ?? '',
+      employeeEmail: json['employeeEmail']?.toString(),
+    );
+  }
+}
+
+class AdminAttendanceHistoryPageModel {
+  final List<AdminAttendanceHistoryModel> records;
+  final int totalCount;
+  final int page;
+  final int pageSize;
+
+  const AdminAttendanceHistoryPageModel({
+    required this.records,
+    required this.totalCount,
+    required this.page,
+    required this.pageSize,
+  });
+}
+
 class AttendanceService {
   /// 1. Xác thực mã QR và tra cứu các ca làm việc của nhân viên
   static Future<VerifyQrResult> verifyQr(String qrPayload) async {
@@ -393,7 +444,82 @@ class AttendanceService {
     } catch (_) {}
     return [];
   }
+
+  static Future<List<ShiftRecordModel>> getMyAttendanceHistory({
+    int limit = 100,
+  }) async {
+    final token = await AuthService.getToken();
+    if (token == null) throw Exception('Phiên đăng nhập đã hết hạn.');
+    final response = await AuthService.authenticatedRequest((token) => http
+        .get(
+          Uri.parse('${ApiConfig.shiftHistoryUrl}?limit=$limit'),
+          headers: {'Authorization': 'Bearer $token'},
+        )
+        .timeout(const Duration(seconds: 15)));
+    final dynamic data = jsonDecode(utf8.decode(response.bodyBytes));
+    if (response.statusCode != 200) {
+      final message = data is Map
+          ? data['title']?.toString() ?? 'Không tải được lịch sử chấm công.'
+          : 'Không tải được lịch sử chấm công.';
+      throw Exception(message);
+    }
+    if (data is! List) {
+      throw const FormatException('Dữ liệu lịch sử không hợp lệ.');
+    }
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(ShiftRecordModel.fromJson)
+        .toList();
+  }
+
+  static Future<AdminAttendanceHistoryPageModel> getAdminAttendanceHistory({
+    required DateTime fromDate,
+    required DateTime toDate,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    final uri = Uri.parse(ApiConfig.adminAttendanceHistoryUrl).replace(
+      queryParameters: {
+        'fromDate': _formatDate(fromDate),
+        'toDate': _formatDate(toDate),
+        'page': '$page',
+        'pageSize': '$pageSize',
+      },
+    );
+    final token = await AuthService.getToken();
+    if (token == null) throw Exception('Phiên đăng nhập đã hết hạn.');
+
+    final response = await AuthService.authenticatedRequest((token) => http
+        .get(uri, headers: {'Authorization': 'Bearer $token'})
+        .timeout(const Duration(seconds: 15)));
+    final dynamic data = jsonDecode(utf8.decode(response.bodyBytes));
+    if (response.statusCode != 200) {
+      final message = data is Map
+          ? data['title']?.toString() ?? 'Không tải được lịch sử chấm công.'
+          : 'Không tải được lịch sử chấm công.';
+      throw Exception(message);
+    }
+    if (data is! Map<String, dynamic>) {
+      throw const FormatException('Dữ liệu lịch sử không hợp lệ.');
+    }
+    final records = data['records'];
+    if (records is! List) {
+      throw const FormatException('Danh sách chấm công không hợp lệ.');
+    }
+    return AdminAttendanceHistoryPageModel(
+      records: records
+          .whereType<Map<String, dynamic>>()
+          .map(AdminAttendanceHistoryModel.fromJson)
+          .toList(),
+      totalCount: _parseNullableInt(data['totalCount']) ?? 0,
+      page: _parseNullableInt(data['page']) ?? page,
+      pageSize: _parseNullableInt(data['pageSize']) ?? pageSize,
+    );
+  }
 }
+
+String _formatDate(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
 int? _parseNullableInt(dynamic value) {
   if (value == null) return null;

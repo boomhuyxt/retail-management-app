@@ -11,6 +11,21 @@ void main() {
     expect(find.text('Gửi mã xác nhận'), findsOneWidget);
   });
 
+  testWidgets('accepts the current account email when opened from profile', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ForgotPasswordScreen(initialEmail: 'staff@example.com'),
+      ),
+    );
+
+    final emailField = tester.widget<TextFormField>(
+      find.byKey(const Key('forgot-email-field')),
+    );
+    expect(emailField.controller?.text, 'staff@example.com');
+  });
+
   testWidgets('validates an empty email before sending', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: ForgotPasswordScreen()));
 

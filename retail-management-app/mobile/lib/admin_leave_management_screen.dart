@@ -123,14 +123,7 @@ class _AdminLeaveManagementScreenState
                                 mainAxisAlignment:
                                 MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    '${req['employeeName']} (${req['empId']})',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                      color: AppColors.textDark,
-                                    ),
-                                  ),
+                                  Expanded(child: Text('${req['employeeName']} (${req['empId']})', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark))),
                                   Text(
                                     req['date'] ?? '',
                                     style: TextStyle(
@@ -267,14 +260,7 @@ class _AdminLeaveManagementScreenState
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${req['employeeName']} (${req['empId']})',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: AppColors.textDark,
-                      ),
-                    ),
+                    Expanded(child: Text('${req['employeeName']} (${req['empId']})', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark))),
                     Text(
                       req['date'] ?? '',
                       style: TextStyle(

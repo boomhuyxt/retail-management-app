@@ -235,7 +235,9 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
 
                 // Brand Header
-                Row(
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ClipRRect(
@@ -289,7 +291,8 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                ),
+                                const SizedBox(height: 24),
 
                 // Tab Switcher
                 Container(

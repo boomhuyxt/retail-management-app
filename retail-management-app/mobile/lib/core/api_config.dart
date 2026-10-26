@@ -77,4 +77,6 @@ class ApiConfig {
   static String get verifyQrUrl => '$baseUrl/api/attendance/verify-qr';
   static String get submitAttendanceUrl => '$baseUrl/api/attendance/submit';
   static String get shiftHistoryUrl => '$baseUrl/api/attendance/history';
+  static String get adminAttendanceHistoryUrl =>
+      '$baseUrl/api/attendance/admin/history';
 }

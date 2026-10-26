@@ -90,7 +90,9 @@ class ShiftConflictResult {
       hasConflict: json['hasConflict'] == true,
       conflictType: json['conflictType'] as String? ?? 'NONE',
       message: json['message'] as String? ?? '',
-      warnings: (json['warnings'] as List? ?? []).map((e) => e.toString()).toList(),
+      warnings: (json['warnings'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
     );
   }
 }
@@ -191,8 +193,9 @@ class ScheduleService {
       queryParams['employeeId'] = '$effectiveEmployeeId';
     }
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/shift-assignments/schedule')
-        .replace(queryParameters: queryParams);
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/shift-assignments/schedule',
+    ).replace(queryParameters: queryParams);
 
     final response = await AuthService.authenticatedRequest(
       (token) =>
@@ -231,7 +234,8 @@ class ScheduleService {
         .where(
           (shift) =>
               shift.status != 'Cancelled' &&
-              (effectiveEmployeeId == null || shift.employeeId == effectiveEmployeeId),
+              (effectiveEmployeeId == null ||
+                  shift.employeeId == effectiveEmployeeId),
         )
         .toList();
     shifts.sort(
@@ -242,34 +246,51 @@ class ScheduleService {
   }
 
   static Future<List<StaffEmployee>> getEmployees({http.Client? client}) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/shift-assignments/employees?page=1&pageSize=100');
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/shift-assignments/employees?page=1&pageSize=100',
+    );
     final response = await AuthService.authenticatedRequest(
-      (token) => (client != null
-              ? client.get(uri, headers: {'Authorization': 'Bearer $token'})
-              : http.get(uri, headers: {'Authorization': 'Bearer $token'}))
-          .timeout(const Duration(seconds: 15)),
+      (token) =>
+          (client != null
+                  ? client.get(uri, headers: {'Authorization': 'Bearer $token'})
+                  : http.get(uri, headers: {'Authorization': 'Bearer $token'}))
+              // The same employee endpoint also performs a total-count query. Give
+              // slower development databases enough time to respond on mobile.
+              .timeout(const Duration(seconds: 30)),
     );
     if (response.statusCode != 200) {
-      throw Exception('Không tải được danh sách nhân viên (${response.statusCode}).');
+      throw Exception(
+        'Không tải được danh sách nhân viên (${response.statusCode}).',
+      );
     }
-    final payload = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final payload =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     final items = payload['items'] as List? ?? [];
-    return items.map((e) => StaffEmployee.fromJson(e as Map<String, dynamic>)).toList();
+    return items
+        .map((e) => StaffEmployee.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  static Future<List<ShiftTemplateModel>> getTemplates({http.Client? client}) async {
+  static Future<List<ShiftTemplateModel>> getTemplates({
+    http.Client? client,
+  }) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/api/shift-templates');
     final response = await AuthService.authenticatedRequest(
-      (token) => (client != null
-              ? client.get(uri, headers: {'Authorization': 'Bearer $token'})
-              : http.get(uri, headers: {'Authorization': 'Bearer $token'}))
-          .timeout(const Duration(seconds: 15)),
+      (token) =>
+          (client != null
+                  ? client.get(uri, headers: {'Authorization': 'Bearer $token'})
+                  : http.get(uri, headers: {'Authorization': 'Bearer $token'}))
+              .timeout(const Duration(seconds: 15)),
     );
     if (response.statusCode != 200) {
-      throw Exception('Không tải được danh sách mẫu ca (${response.statusCode}).');
+      throw Exception(
+        'Không tải được danh sách mẫu ca (${response.statusCode}).',
+      );
     }
     final items = jsonDecode(utf8.decode(response.bodyBytes)) as List? ?? [];
-    return items.map((e) => ShiftTemplateModel.fromJson(e as Map<String, dynamic>)).toList();
+    return items
+        .map((e) => ShiftTemplateModel.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   static Future<ShiftConflictResult> validateConflict({
@@ -281,7 +302,9 @@ class ScheduleService {
     int? excludeAssignmentId,
     http.Client? client,
   }) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/shift-assignments/validate');
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/shift-assignments/validate',
+    );
     final body = jsonEncode({
       'employeeId': employeeId,
       'shiftDate': shiftDate,
@@ -291,12 +314,28 @@ class ScheduleService {
       'excludeAssignmentId': excludeAssignmentId,
     });
     final response = await AuthService.authenticatedRequest(
-      (token) => (client != null
-              ? client.post(uri, headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: body)
-              : http.post(uri, headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: body))
-          .timeout(const Duration(seconds: 15)),
+      (token) =>
+          (client != null
+                  ? client.post(
+                      uri,
+                      headers: {
+                        'Authorization': 'Bearer $token',
+                        'Content-Type': 'application/json',
+                      },
+                      body: body,
+                    )
+                  : http.post(
+                      uri,
+                      headers: {
+                        'Authorization': 'Bearer $token',
+                        'Content-Type': 'application/json',
+                      },
+                      body: body,
+                    ))
+              .timeout(const Duration(seconds: 15)),
     );
-    final payload = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final payload =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     return ShiftConflictResult.fromJson(payload);
   }
 
@@ -320,7 +359,8 @@ class ScheduleService {
     if (shiftTemplateId != null) {
       bodyData['shiftTemplateId'] = shiftTemplateId;
     } else {
-      bodyData['customShiftName'] = (customShiftName != null && customShiftName.trim().isNotEmpty)
+      bodyData['customShiftName'] =
+          (customShiftName != null && customShiftName.trim().isNotEmpty)
           ? customShiftName.trim()
           : 'Ca tùy chỉnh';
       bodyData['customStartTime'] = customStartTime;
@@ -329,28 +369,58 @@ class ScheduleService {
     }
     final body = jsonEncode(bodyData);
     final response = await AuthService.authenticatedRequest(
-      (token) => (client != null
-              ? client.post(uri, headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: body)
-              : http.post(uri, headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: body))
-          .timeout(const Duration(seconds: 15)),
+      (token) =>
+          (client != null
+                  ? client.post(
+                      uri,
+                      headers: {
+                        'Authorization': 'Bearer $token',
+                        'Content-Type': 'application/json',
+                      },
+                      body: body,
+                    )
+                  : http.post(
+                      uri,
+                      headers: {
+                        'Authorization': 'Bearer $token',
+                        'Content-Type': 'application/json',
+                      },
+                      body: body,
+                    ))
+              .timeout(const Duration(seconds: 15)),
     );
     Map<String, dynamic>? payload;
     try {
-      payload = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      payload =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     } catch (_) {}
     if (response.statusCode != 201) {
-      throw Exception(payload?['title'] ?? 'Lỗi khi tạo ca làm (${response.statusCode}).');
+      throw Exception(
+        payload?['title'] ?? 'Lỗi khi tạo ca làm (${response.statusCode}).',
+      );
     }
     return ScheduleShift.fromJson(payload!);
   }
 
-  static Future<void> deleteShift(int assignmentId, {http.Client? client}) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/shift-assignments/$assignmentId');
+  static Future<void> deleteShift(
+    int assignmentId, {
+    http.Client? client,
+  }) async {
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/shift-assignments/$assignmentId',
+    );
     final response = await AuthService.authenticatedRequest(
-      (token) => (client != null
-              ? client.delete(uri, headers: {'Authorization': 'Bearer $token'})
-              : http.delete(uri, headers: {'Authorization': 'Bearer $token'}))
-          .timeout(const Duration(seconds: 15)),
+      (token) =>
+          (client != null
+                  ? client.delete(
+                      uri,
+                      headers: {'Authorization': 'Bearer $token'},
+                    )
+                  : http.delete(
+                      uri,
+                      headers: {'Authorization': 'Bearer $token'},
+                    ))
+              .timeout(const Duration(seconds: 15)),
     );
     if (response.statusCode != 204 && response.statusCode != 200) {
       throw Exception('Không thể hủy ca làm (${response.statusCode}).');
@@ -366,7 +436,9 @@ class ScheduleService {
     String? note,
     http.Client? client,
   }) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/shift-assignments/$assignmentId');
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/shift-assignments/$assignmentId',
+    );
     final body = jsonEncode({
       if (shiftName != null) 'shiftName': shiftName,
       if (startTime != null) 'startTime': startTime,
@@ -375,17 +447,36 @@ class ScheduleService {
       if (note != null) 'note': note,
     });
     final response = await AuthService.authenticatedRequest(
-      (token) => (client != null
-              ? client.put(uri, headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: body)
-              : http.put(uri, headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: body))
-          .timeout(const Duration(seconds: 15)),
+      (token) =>
+          (client != null
+                  ? client.put(
+                      uri,
+                      headers: {
+                        'Authorization': 'Bearer $token',
+                        'Content-Type': 'application/json',
+                      },
+                      body: body,
+                    )
+                  : http.put(
+                      uri,
+                      headers: {
+                        'Authorization': 'Bearer $token',
+                        'Content-Type': 'application/json',
+                      },
+                      body: body,
+                    ))
+              .timeout(const Duration(seconds: 15)),
     );
     Map<String, dynamic>? payload;
     try {
-      payload = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      payload =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     } catch (_) {}
     if (response.statusCode != 200 || payload == null) {
-      throw Exception(payload?['title'] ?? 'Không thể cập nhật phân ca (${response.statusCode}).');
+      throw Exception(
+        payload?['title'] ??
+            'Không thể cập nhật phân ca (${response.statusCode}).',
+      );
     }
     return ScheduleShift.fromJson(payload);
   }

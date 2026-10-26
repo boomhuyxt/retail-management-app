@@ -83,16 +83,27 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
               runSpacing: 6,
               children: [
                 ActionChip(
-                  label: const Text('Localhost (USB/Emulator)', style: TextStyle(fontSize: 11)),
+                  label: const Text(
+                    'Localhost (USB/Emulator)',
+                    style: TextStyle(fontSize: 11),
+                  ),
                   onPressed: () => urlController.text = 'http://localhost:5000',
                 ),
                 ActionChip(
-                  label: const Text('Wi-Fi LAN', style: TextStyle(fontSize: 11)),
-                  onPressed: () => urlController.text = 'http://192.168.2.248:5000',
+                  label: const Text(
+                    'Wi-Fi LAN',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  onPressed: () =>
+                      urlController.text = 'http://192.168.2.248:5000',
                 ),
                 ActionChip(
-                  label: const Text('Deploy Online', style: TextStyle(fontSize: 11)),
-                  onPressed: () => urlController.text = 'https://www.manage365.io.vn',
+                  label: const Text(
+                    'Deploy Online',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  onPressed: () =>
+                      urlController.text = 'https://www.manage365.io.vn',
                 ),
               ],
             ),
@@ -287,9 +298,9 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi tải dữ liệu: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Lỗi tải dữ liệu: $e')));
         }
       }
     }
@@ -379,7 +390,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                     // 1. Chọn Nhân viên
                     const Text(
                       'Nhân viên nhận ca *',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Container(
@@ -444,7 +458,9 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                                     vertical: 12,
                                   ),
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey.shade300),
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Row(
@@ -456,8 +472,12 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        DateFormat('dd/MM/yyyy').format(sheetDate),
-                                        style: const TextStyle(fontWeight: FontWeight.w600),
+                                        DateFormat(
+                                          'dd/MM/yyyy',
+                                        ).format(sheetDate),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -481,27 +501,39 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                               ),
                               const SizedBox(height: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
                                 decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                  ),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButton<int?>(
                                     isExpanded: true,
                                     value: selectedTemplateId,
-                                    hint: const Text('Tùy chỉnh', style: TextStyle(fontSize: 13)),
+                                    hint: const Text(
+                                      'Tùy chỉnh',
+                                      style: TextStyle(fontSize: 13),
+                                    ),
                                     items: [
                                       const DropdownMenuItem<int?>(
                                         value: null,
-                                        child: Text('Tùy chỉnh giờ', style: TextStyle(fontSize: 13)),
+                                        child: Text(
+                                          'Tùy chỉnh giờ',
+                                          style: TextStyle(fontSize: 13),
+                                        ),
                                       ),
                                       ..._templates.map((tpl) {
                                         return DropdownMenuItem<int?>(
                                           value: tpl.id,
                                           child: Text(
                                             '${tpl.name} (${tpl.startTime}-${tpl.endTime})',
-                                            style: const TextStyle(fontSize: 13),
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                            ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         );
@@ -511,16 +543,32 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                                       setModalState(() {
                                         selectedTemplateId = val;
                                         if (val != null) {
-                                          final tpl = _templates.firstWhere((t) => t.id == val);
-                                          final sParts = tpl.startTime.split(':');
+                                          final tpl = _templates.firstWhere(
+                                            (t) => t.id == val,
+                                          );
+                                          final sParts = tpl.startTime.split(
+                                            ':',
+                                          );
                                           final eParts = tpl.endTime.split(':');
                                           startTime = TimeOfDay(
                                             hour: int.tryParse(sParts[0]) ?? 8,
-                                            minute: int.tryParse(sParts.length > 1 ? sParts[1] : '0') ?? 0,
+                                            minute:
+                                                int.tryParse(
+                                                  sParts.length > 1
+                                                      ? sParts[1]
+                                                      : '0',
+                                                ) ??
+                                                0,
                                           );
                                           endTime = TimeOfDay(
                                             hour: int.tryParse(eParts[0]) ?? 17,
-                                            minute: int.tryParse(eParts.length > 1 ? eParts[1] : '0') ?? 0,
+                                            minute:
+                                                int.tryParse(
+                                                  eParts.length > 1
+                                                      ? eParts[1]
+                                                      : '0',
+                                                ) ??
+                                                0,
                                           );
                                           isOvernight = tpl.isOvernight;
                                           customNameController.text = tpl.name;
@@ -540,7 +588,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                     // 3. Khung giờ làm việc (Chuẩn 24H - Wheel Picker)
                     const Text(
                       'Thời gian ca làm (Chuẩn 24 giờ quốc tế 00:00 - 23:59) *',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Row(
@@ -558,7 +609,8 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                                 setModalState(() {
                                   startTime = picked;
                                   selectedTemplateId = null;
-                                  if (endTime.hour < startTime.hour && !isOvernight) {
+                                  if (endTime.hour < startTime.hour &&
+                                      !isOvernight) {
                                     isOvernight = true;
                                   }
                                 });
@@ -566,11 +618,16 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                             },
                             borderRadius: BorderRadius.circular(10),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.bgLightCream,
                                 border: Border.all(
-                                  color: AppColors.primaryOrange.withValues(alpha: 0.5),
+                                  color: AppColors.primaryOrange.withValues(
+                                    alpha: 0.5,
+                                  ),
                                 ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -579,7 +636,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                                 children: [
                                   const Text(
                                     'Bắt đầu',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
                                   Row(
@@ -607,7 +667,11 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                         ),
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Icon(Icons.arrow_forward, color: Colors.grey, size: 20),
+                          child: Icon(
+                            Icons.arrow_forward,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
                         ),
                         // Giờ kết thúc
                         Expanded(
@@ -622,7 +686,8 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                                 setModalState(() {
                                   endTime = picked;
                                   selectedTemplateId = null;
-                                  if (endTime.hour < startTime.hour && !isOvernight) {
+                                  if (endTime.hour < startTime.hour &&
+                                      !isOvernight) {
                                     isOvernight = true;
                                   }
                                 });
@@ -630,11 +695,16 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                             },
                             borderRadius: BorderRadius.circular(10),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.bgLightCream,
                                 border: Border.all(
-                                  color: AppColors.primaryOrange.withValues(alpha: 0.5),
+                                  color: AppColors.primaryOrange.withValues(
+                                    alpha: 0.5,
+                                  ),
                                 ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -643,7 +713,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                                 children: [
                                   const Text(
                                     'Kết thúc',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
                                   Row(
@@ -677,7 +750,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                     CheckboxListTile(
                       title: const Text(
                         'Kết thúc vào ngày hôm sau (Ca qua đêm)',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       subtitle: const Text(
                         'Tích chọn cho các ca làm việc kéo dài qua 00:00 (Ví dụ: 22:00 – 06:00)',
@@ -695,7 +771,8 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                     // Cảnh báo nếu giờ kết thúc nhỏ hơn bắt đầu mà chưa tích qua đêm
                     if (!isOvernight &&
                         (endTime.hour < startTime.hour ||
-                            (endTime.hour == startTime.hour && endTime.minute < startTime.minute)))
+                            (endTime.hour == startTime.hour &&
+                                endTime.minute < startTime.minute)))
                       Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(8),
@@ -706,12 +783,19 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.warning_amber_rounded, size: 16, color: Colors.amber.shade900),
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              size: 16,
+                              color: Colors.amber.shade900,
+                            ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 'Giờ kết thúc ($endStr) nhỏ hơn giờ bắt đầu ($startStr). Hãy tích chọn ô ca qua đêm bên trên.',
-                                style: TextStyle(fontSize: 11, color: Colors.amber.shade900),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.amber.shade900,
+                                ),
                               ),
                             ),
                           ],
@@ -743,7 +827,11 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                           if (overlap.hasSelfConflict) ...[
                             Row(
                               children: [
-                                Icon(Icons.error_outline, size: 18, color: Colors.red.shade800),
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 18,
+                                  color: Colors.red.shade800,
+                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -760,12 +848,19 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                             const SizedBox(height: 4),
                             Text(
                               'Nhân viên đã có ca "${overlap.conflictingShift?.name}" (${overlap.conflictingShift?.startTime} – ${overlap.conflictingShift?.endTime}). Vui lòng chọn khung giờ khác cho nhân viên này.',
-                              style: TextStyle(fontSize: 11, color: Colors.red.shade800),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.red.shade800,
+                              ),
                             ),
                           ] else if (overlap.overlappingShifts.isNotEmpty) ...[
                             Row(
                               children: [
-                                Icon(Icons.people, size: 18, color: Colors.blue.shade800),
+                                Icon(
+                                  Icons.people,
+                                  size: 18,
+                                  color: Colors.blue.shade800,
+                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -785,11 +880,16 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                               runSpacing: 4,
                               children: overlap.overlappingShifts.map((s) {
                                 return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: Colors.blue.shade200),
+                                    border: Border.all(
+                                      color: Colors.blue.shade200,
+                                    ),
                                   ),
                                   child: Text(
                                     '${s.employeeName ?? 'NV-${s.employeeId}'} (${s.startTime}–${s.endTime})',
@@ -814,7 +914,11 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                           ] else ...[
                             Row(
                               children: [
-                                Icon(Icons.check_circle_outline, size: 18, color: Colors.green.shade800),
+                                Icon(
+                                  Icons.check_circle_outline,
+                                  size: 18,
+                                  color: Colors.green.shade800,
+                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -836,7 +940,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                     // 6. Tên ca làm
                     const Text(
                       'Tên ca làm việc',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     TextField(
@@ -844,7 +951,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                       decoration: const InputDecoration(
                         hintText: 'VD: Ca sáng, Ca tối, Ca phụ',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -852,7 +962,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                     // 7. Ghi chú
                     const Text(
                       'Ghi chú (tùy chọn)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     TextField(
@@ -861,7 +974,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                       decoration: const InputDecoration(
                         hintText: 'Nhập ghi chú cho nhân viên (nếu có)...',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -877,7 +993,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: isSubmitting || overlap.hasSelfConflict || selectedEmpId == null
+                        onPressed:
+                            isSubmitting ||
+                                overlap.hasSelfConflict ||
+                                selectedEmpId == null
                             ? null
                             : () async {
                                 setModalState(() => isSubmitting = true);
@@ -887,7 +1006,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                                     employeeId: selectedEmpId!,
                                     shiftDate: dateStr,
                                     shiftTemplateId: selectedTemplateId,
-                                    customShiftName: customNameController.text.trim().isNotEmpty
+                                    customShiftName:
+                                        customNameController.text
+                                            .trim()
+                                            .isNotEmpty
                                         ? customNameController.text.trim()
                                         : 'Ca làm',
                                     customStartTime: '$startStr:00',
@@ -903,7 +1025,9 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                                   if (!mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Phân ca làm việc thành công!'),
+                                      content: Text(
+                                        'Phân ca làm việc thành công!',
+                                      ),
                                       backgroundColor: Colors.green,
                                     ),
                                   );
@@ -989,7 +1113,9 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi: ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text(
+              'Lỗi: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -997,7 +1123,27 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
     }
   }
 
-  void _showEmployeeManagementSheet() {
+  Future<void> _showEmployeeManagementSheet() async {
+    try {
+      final employees = await ScheduleService.getEmployees();
+      if (!mounted) return;
+      setState(() => _employees = employees);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Không tải được danh sách nhân viên: ${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+          action: SnackBarAction(
+            label: 'Thử lại',
+            onPressed: () => _showEmployeeManagementSheet(),
+          ),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -1016,17 +1162,19 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                 _load();
               },
             ),
-            ..._employees.map((employee) => ListTile(
-                  leading: const Icon(Icons.person_outline),
-                  title: Text(employee.displayName),
-                  subtitle: Text(employee.departmentName ?? employee.code),
-                  selected: _filterEmployeeId == employee.id,
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    setState(() => _filterEmployeeId = employee.id);
-                    _load();
-                  },
-                )),
+            ..._employees.map(
+              (employee) => ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text(employee.displayName),
+                subtitle: Text(employee.departmentName ?? employee.code),
+                selected: _filterEmployeeId == employee.id,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  setState(() => _filterEmployeeId = employee.id);
+                  _load();
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -1034,8 +1182,12 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
   }
 
   void _showEditShiftPicker() {
-    final candidates = _shifts.where((shift) =>
-        shift.date == scheduleDate(_selectedDate) && !shift.isOnLeave).toList();
+    final candidates = _shifts
+        .where(
+          (shift) =>
+              shift.date == scheduleDate(_selectedDate) && !shift.isOnLeave,
+        )
+        .toList();
     if (candidates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ngày này chưa có ca để chỉnh sửa.')),
@@ -1050,15 +1202,19 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
           shrinkWrap: true,
           children: [
             const ListTile(title: Text('Chọn ca cần chỉnh sửa')),
-            ...candidates.map((shift) => ListTile(
-                  leading: const Icon(Icons.edit_outlined),
-                  title: Text(shift.name),
-                  subtitle: Text('${shift.employeeName ?? 'NV-${shift.employeeId}'} · ${shift.startTime}–${shift.endTime}'),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _editShift(shift);
-                  },
-                )),
+            ...candidates.map(
+              (shift) => ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: Text(shift.name),
+                subtitle: Text(
+                  '${shift.employeeName ?? 'NV-${shift.employeeId}'} · ${shift.startTime}–${shift.endTime}',
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _editShift(shift);
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -1074,42 +1230,88 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
     try {
       final save = await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Chỉnh sửa ca làm'),
-          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: name, decoration: const InputDecoration(labelText: 'Tên ca')),
-            TextField(controller: start, decoration: const InputDecoration(labelText: 'Giờ bắt đầu (HH:mm)')),
-            TextField(controller: end, decoration: const InputDecoration(labelText: 'Giờ kết thúc (HH:mm)')),
-            TextField(controller: note, decoration: const InputDecoration(labelText: 'Ghi chú')),
-          ])),
-          actions: [
-            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext, false), child: const Text('Hủy')),
-            FilledButton(
-              onPressed: saving ? null : () async {
-                setDialogState(() => saving = true);
-                try {
-                  await ScheduleService.updateAssignment(
-                    assignmentId: shift.assignmentId,
-                    shiftName: name.text.trim(),
-                    startTime: start.text.trim(),
-                    endTime: end.text.trim(),
-                    isOvernight: end.text.trim().compareTo(start.text.trim()) < 0,
-                    note: note.text.trim(),
-                  );
-                  if (dialogContext.mounted) Navigator.pop(dialogContext, true);
-                } catch (error) {
-                  setDialogState(() => saving = false);
-                  if (dialogContext.mounted) {
-                    ScaffoldMessenger.of(dialogContext).showSnackBar(
-                      SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
-                    );
-                  }
-                }
-              },
-              child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Lưu thay đổi'),
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Chỉnh sửa ca làm'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: name,
+                    decoration: const InputDecoration(labelText: 'Tên ca'),
+                  ),
+                  TextField(
+                    controller: start,
+                    decoration: const InputDecoration(
+                      labelText: 'Giờ bắt đầu (HH:mm)',
+                    ),
+                  ),
+                  TextField(
+                    controller: end,
+                    decoration: const InputDecoration(
+                      labelText: 'Giờ kết thúc (HH:mm)',
+                    ),
+                  ),
+                  TextField(
+                    controller: note,
+                    decoration: const InputDecoration(labelText: 'Ghi chú'),
+                  ),
+                ],
+              ),
             ),
-          ],
-        )),
+            actions: [
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () => Navigator.pop(dialogContext, false),
+                child: const Text('Hủy'),
+              ),
+              FilledButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        setDialogState(() => saving = true);
+                        try {
+                          await ScheduleService.updateAssignment(
+                            assignmentId: shift.assignmentId,
+                            shiftName: name.text.trim(),
+                            startTime: start.text.trim(),
+                            endTime: end.text.trim(),
+                            isOvernight:
+                                end.text.trim().compareTo(start.text.trim()) <
+                                0,
+                            note: note.text.trim(),
+                          );
+                          if (dialogContext.mounted)
+                            Navigator.pop(dialogContext, true);
+                        } catch (error) {
+                          setDialogState(() => saving = false);
+                          if (dialogContext.mounted) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  error.toString().replaceFirst(
+                                    'Exception: ',
+                                    '',
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                child: saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Lưu thay đổi'),
+              ),
+            ],
+          ),
+        ),
       );
       if (save == true && mounted) _load();
     } finally {
@@ -1120,7 +1322,8 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
     }
   }
 
-  Widget _quickAction(String label, IconData icon, VoidCallback onTap) => Padding(
+  Widget _quickAction(String label, IconData icon, VoidCallback onTap) =>
+      Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: FloatingActionButton.extended(
           heroTag: label,
@@ -1160,23 +1363,42 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
         ],
       ),
       floatingActionButton: _isManager
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (_isFabMenuOpen) ...[
-                  _quickAction('Thêm ca làm mới', Icons.add_circle_outline, _openAssignShiftSheet),
-                  _quickAction('Chỉnh sửa ca làm', Icons.edit_outlined, _showEditShiftPicker),
-                  _quickAction('Quản lý nhân viên', Icons.groups_outlined, _showEmployeeManagementSheet),
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 80),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (_isFabMenuOpen) ...[
+                    _quickAction(
+                      'Thêm ca làm mới',
+                      Icons.add_circle_outline,
+                      _openAssignShiftSheet,
+                    ),
+                    _quickAction(
+                      'Chỉnh sửa ca làm',
+                      Icons.edit_outlined,
+                      _showEditShiftPicker,
+                    ),
+                    _quickAction(
+                      'Quản lý nhân viên',
+                      Icons.groups_outlined,
+                      _showEmployeeManagementSheet,
+                    ),
+                  ],
+                  FloatingActionButton(
+                    heroTag: 'schedule-actions',
+                    tooltip: 'Thao tác phân ca',
+                    backgroundColor: AppColors.primaryOrange,
+                    onPressed: () =>
+                        setState(() => _isFabMenuOpen = !_isFabMenuOpen),
+                    child: Icon(
+                      _isFabMenuOpen ? Icons.close : Icons.add,
+                      color: Colors.white,
+                    ),
+                  ),
                 ],
-                FloatingActionButton(
-                  heroTag: 'schedule-actions',
-                  tooltip: 'Thao tác phân ca',
-                  backgroundColor: AppColors.primaryOrange,
-                  onPressed: () => setState(() => _isFabMenuOpen = !_isFabMenuOpen),
-                  child: Icon(_isFabMenuOpen ? Icons.close : Icons.add, color: Colors.white),
-                ),
-              ],
+              ),
             )
           : null,
       body: SafeArea(
@@ -1194,7 +1416,11 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.filter_list, size: 18, color: AppColors.primaryOrange),
+                    const Icon(
+                      Icons.filter_list,
+                      size: 18,
+                      color: AppColors.primaryOrange,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonHideUnderline(
@@ -1203,14 +1429,20 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                           value: _filterEmployeeId,
                           hint: const Text(
                             'Xem tất cả nhân viên trong cửa hàng',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           items: [
                             const DropdownMenuItem<int?>(
                               value: null,
                               child: Text(
                                 'Tất cả nhân viên',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             ..._employees.map((emp) {
@@ -1358,85 +1590,99 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
                 child: RefreshIndicator(
-                onRefresh: _load,
-                child: _loading
-                    ? ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: const [
-                          Padding(
-                            padding: EdgeInsets.all(48),
-                            child: Center(child: CircularProgressIndicator()),
-                          ),
-                        ],
-                      )
-                    : _error != null
-                    ? ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(24),
-                        children: [
-                          Text(_error!, textAlign: TextAlign.center),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 12,
-                            runSpacing: 8,
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: _load,
-                                icon: const Icon(Icons.refresh, size: 18),
-                                label: const Text('Thử lại'),
-                              ),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primaryOrange,
+                  onRefresh: _load,
+                  child: _loading
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            Padding(
+                              padding: EdgeInsets.all(48),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          ],
+                        )
+                      : _error != null
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(24),
+                          children: [
+                            Text(_error!, textAlign: TextAlign.center),
+                            const SizedBox(height: 16),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 12,
+                              runSpacing: 8,
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: _load,
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: const Text('Thử lại'),
                                 ),
-                                onPressed: _showChangeServerDialog,
-                                icon: const Icon(Icons.dns, size: 18, color: Colors.white),
-                                label: const Text(
-                                  'Đổi máy chủ API',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                    : ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                        children: shifts.isEmpty
-                            ? [
-                                Padding(
-                                  padding: const EdgeInsets.all(32),
-                                  child: Column(
-                                    children: [
-                                      const Icon(Icons.event_available_outlined, size: 42, color: Colors.black26),
-                                      const SizedBox(height: 12),
-                                      const Text(
-                                        'Không có ca làm việc nào được phân công',
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      if (_isManager) ...[
-                                        const SizedBox(height: 12),
-                                        ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppColors.primaryOrange,
-                                          ),
-                                          onPressed: _openAssignShiftSheet,
-                                          icon: const Icon(Icons.add, color: Colors.white),
-                                          label: const Text(
-                                            'Phân ca ngay',
-                                            style: TextStyle(color: Colors.white),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primaryOrange,
+                                  ),
+                                  onPressed: _showChangeServerDialog,
+                                  icon: const Icon(
+                                    Icons.dns,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text(
+                                    'Đổi máy chủ API',
+                                    style: TextStyle(color: Colors.white),
                                   ),
                                 ),
-                              ]
-                            : shifts.map(_card).toList(),
-                      ),
-              ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                          children: shifts.isEmpty
+                              ? [
+                                  Padding(
+                                    padding: const EdgeInsets.all(32),
+                                    child: Column(
+                                      children: [
+                                        const Icon(
+                                          Icons.event_available_outlined,
+                                          size: 42,
+                                          color: Colors.black26,
+                                        ),
+                                        const SizedBox(height: 12),
+                                        const Text(
+                                          'Không có ca làm việc nào được phân công',
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        if (_isManager) ...[
+                                          const SizedBox(height: 12),
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  AppColors.primaryOrange,
+                                            ),
+                                            onPressed: _openAssignShiftSheet,
+                                            icon: const Icon(
+                                              Icons.add,
+                                              color: Colors.white,
+                                            ),
+                                            label: const Text(
+                                              'Phân ca ngay',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ]
+                              : shifts.map(_card).toList(),
+                        ),
+                ),
               ),
             ),
           ],
@@ -1450,6 +1696,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
         ? shift.color.substring(1)
         : 'e96900';
     final color = Color(int.parse('ff$rawColor', radix: 16));
+    final employeeLabel = [
+      shift.employeeName ?? 'NV-${shift.employeeId}',
+      if (shift.departmentName?.isNotEmpty == true) shift.departmentName!,
+    ].join(' · ');
 
     return Card(
       key: ValueKey(shift.assignmentId),
@@ -1471,7 +1721,10 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                     children: [
                       Text(
                         shift.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       // Hiển thị tên nhân viên nếu là Quản lý hoặc có dữ liệu nhân viên
                       if (shift.employeeName != null || _isManager)
@@ -1479,23 +1732,24 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                           padding: const EdgeInsets.only(top: 4),
                           child: Row(
                             children: [
-                              Icon(Icons.person, size: 14, color: Colors.grey.shade700),
+                              Icon(
+                                Icons.person,
+                                size: 14,
+                                color: Colors.grey.shade700,
+                              ),
                               const SizedBox(width: 4),
-                              Text(
-                                shift.employeeName ?? 'NV-${shift.employeeId}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade800,
+                              Expanded(
+                                child: Text(
+                                  employeeLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade800,
+                                  ),
                                 ),
                               ),
-                              if (shift.departmentName != null) ...[
-                                const Text(' · ', style: TextStyle(color: Colors.grey)),
-                                Text(
-                                  shift.departmentName!,
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                ),
-                              ],
                             ],
                           ),
                         ),
@@ -1505,13 +1759,23 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                 // Nút hủy ca cho Quản lý
                 if (_isManager && !shift.isOnLeave)
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      color: Colors.blue,
+                      size: 20,
+                    ),
                     tooltip: 'Chỉnh sửa ca làm',
                     onPressed: () => _editShift(shift),
                   ),
-                if (_isManager && shift.status != 'Cancelled' && !shift.isOnLeave)
+                if (_isManager &&
+                    shift.status != 'Cancelled' &&
+                    !shift.isOnLeave)
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                      size: 20,
+                    ),
                     tooltip: 'Hủy phân ca',
                     onPressed: () => _confirmDeleteShift(shift),
                   ),
@@ -1522,9 +1786,13 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
               children: [
                 const Icon(Icons.access_time, size: 14, color: Colors.grey),
                 const SizedBox(width: 4),
-                Text(
-                  '${shift.startTime} – ${shift.endTime}${shift.isOvernight ? ' (kết thúc ngày hôm sau)' : ''}',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                Expanded(
+                  child: Text(
+                    '${shift.startTime} – ${shift.endTime}${shift.isOvernight ? ' (kết thúc ngày hôm sau)' : ''}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
                 ),
               ],
             ),
@@ -1532,7 +1800,8 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: (shift.checkOutAt != null ? Colors.green : color).withValues(alpha: 0.12),
+                color: (shift.checkOutAt != null ? Colors.green : color)
+                    .withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -1540,7 +1809,9 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: shift.checkOutAt != null ? Colors.green.shade700 : color,
+                  color: shift.checkOutAt != null
+                      ? Colors.green.shade700
+                      : color,
                 ),
               ),
             ),

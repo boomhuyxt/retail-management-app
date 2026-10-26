@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'admin_leave_management_screen.dart';
+import 'attendance_history_screen.dart';
 import 'core/api_config.dart';
 import 'core/auth_service.dart';
-import 'employee_leave_screen.dart';
+import 'forgot_password_screen.dart';
 import 'profile_detail_screen.dart'; // Import màn hình Chi tiết thông tin cá nhân
 import 'theme.dart';
 
@@ -18,7 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool get _isAdminOrOwner {
     final role = (_user?.role ?? '').toLowerCase();
-    return role.contains('admin') || role.contains('owner') || role.contains('chủ cửa hàng');
+    return role.contains('admin') || role.contains('manager') || role.contains('owner') || role.contains('chủ cửa hàng');
   }
 
   @override
@@ -149,7 +151,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
               // 2. Các mục cài đặt khác
-              _buildMenuTile(Icons.history, 'Lịch sử chấm công', () {}),
+              _buildMenuTile(Icons.history, 'Lịch sử chấm công', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AttendanceHistoryScreen(isAdmin: _isAdminOrOwner),
+                  ),
+                );
+              }),
               _buildMenuTile(
                 _isAdminOrOwner ? Icons.admin_panel_settings_outlined : Icons.event_note_outlined,
                 _isAdminOrOwner ? 'Quản lý lịch sử nghỉ phép' : 'Đơn xin nghỉ phép',
@@ -169,8 +178,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
               _buildMenuTile(Icons.dns_outlined, 'Cấu hình máy chủ API', _showServerConfigDialog),
 
-              _buildMenuTile(Icons.lock_outline, 'Đổi mật khẩu', () {}),
-              _buildMenuTile(Icons.help_outline, 'Trợ giúp & Hỗ trợ', () {}),
+              _buildMenuTile(Icons.lock_outline, 'Đổi mật khẩu', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ForgotPasswordScreen(initialEmail: _user?.email ?? ''),
+                  ),
+                );
+              }),
+              _buildMenuTile(Icons.help_outline, 'Trợ giúp & Hỗ trợ', _showSupportDialog),
 
               const SizedBox(height: 10),
 
@@ -192,6 +208,152 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showSupportDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.bgLightCream,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        title: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.primaryOrange.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: const Icon(
+                Icons.support_agent_rounded,
+                color: AppColors.primaryOrange,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Trợ giúp & Hỗ trợ',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    'Đội ngũ Retail365 sẵn sàng hỗ trợ bạn',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Mọi vấn đề về kỹ thuật và hỗ trợ, vui lòng liên hệ:',
+              style: TextStyle(fontSize: 14, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            _buildSupportContactTile(
+              icon: Icons.email_outlined,
+              label: 'Email hỗ trợ',
+              value: 'reretailmanagement@gmail.com',
+            ),
+            const SizedBox(height: 10),
+            _buildSupportContactTile(
+              icon: Icons.phone_outlined,
+              label: 'Điện thoại',
+              value: '0916887224',
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryOrange,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Đã hiểu'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSupportContactTile({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) =>
+      Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 11),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: AppColors.primaryOrange, size: 21),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Sao chép $label',
+                  onPressed: () => _copySupportContact(value),
+                  icon: const Icon(Icons.copy_rounded, size: 18),
+                  color: Colors.grey[600],
+                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 30, right: 8),
+              child: SelectableText(
+                value,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Future<void> _copySupportContact(String value) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Đã sao chép thông tin liên hệ.')),
     );
   }
 
@@ -278,15 +440,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMenuTile(IconData icon, String title, VoidCallback onTap) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+      child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: AppColors.textDark),
-        title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-        onTap: onTap,
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: Icon(icon, color: AppColors.textDark),
+          title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+          onTap: onTap,
+        ),
       ),
     );
   }

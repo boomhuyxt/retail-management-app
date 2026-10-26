@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -94,6 +94,60 @@ void main() {
       client.close();
     },
   );
+  test('Employee management loads employees from the scheduling API', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'GET');
+      expect(request.url.path, '/api/shift-assignments/employees');
+      expect(request.url.queryParameters, {'page': '1', 'pageSize': '100'});
+      expect(request.headers['Authorization'], 'Bearer test-token');
+      return http.Response(
+        jsonEncode({
+          'items': [
+            {'id': 101, 'code': 'NV-0101', 'displayName': 'Test Employee'},
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final employees = await ScheduleService.getEmployees(client: client);
+    expect(employees, hasLength(1));
+    expect(employees.single.displayName, 'Test Employee');
+    client.close();
+  });
+
+  test('Assign shift posts to the scheduling API', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(request.url.path, '/api/shift-assignments');
+      expect(request.headers['Authorization'], 'Bearer test-token');
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['employeeId'], 101);
+      expect(body['shiftDate'], '2026-10-26');
+      expect(body['customShiftName'], 'Ca tối');
+      expect(body['customStartTime'], '22:00');
+      expect(body['customEndTime'], '06:00');
+      expect(body['isOvernight'], true);
+      return http.Response(
+        jsonEncode(shiftJson()),
+        201,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final assignment = await ScheduleService.assignShift(
+      employeeId: 101,
+      shiftDate: '2026-10-26',
+      customShiftName: 'Ca tối',
+      customStartTime: '22:00',
+      customEndTime: '06:00',
+      isOvernight: true,
+      client: client,
+    );
+    expect(assignment.assignmentId, 1);
+    client.close();
+  });
   test('Update assignment sends PUT to the scheduling API', () async {
     final client = MockClient((request) async {
       expect(request.method, 'PUT');
@@ -263,6 +317,87 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('Thao tác phân ca'), findsOneWidget);
   });
+  testWidgets('Manager action button stays clear of the profile tab', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    AuthService.currentUser = UserModel(
+      id: 102,
+      email: 'manager@test.vn',
+      displayName: 'Manager',
+      role: 'Manager',
+    );
+    var profileTapped = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          extendBody: true,
+          body: ShiftScheduleScreen(loadSchedule: (_, _) async => []),
+          bottomNavigationBar: SizedBox(
+            height: 80,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: SizedBox(
+                key: const ValueKey('profileTab'),
+                width: 120,
+                height: 80,
+                child: InkWell(
+                  onTap: () => profileTapped = true,
+                  child: const Center(child: Text('Cá nhân')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final actionButton = tester.getRect(find.byTooltip('Thao tác phân ca'));
+    final profileTab = tester.getRect(find.byKey(const ValueKey('profileTab')));
+    expect(actionButton.bottom, lessThan(profileTab.top));
+
+    await tester.tap(find.byKey(const ValueKey('profileTab')));
+    expect(profileTapped, isTrue);
+  });
+  testWidgets('Long shift labels fit on a compact screen', (tester) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    AuthService.currentUser = UserModel(
+      id: 102,
+      email: 'manager@test.vn',
+      displayName: 'Manager',
+      role: 'Manager',
+    );
+    final shift = ScheduleShift(
+      assignmentId: 101,
+      employeeId: 55,
+      employeeName: 'A very long employee name that should not overflow',
+      employeeCode: 'NV-0055',
+      departmentName: 'A very long department name',
+      name: 'A very long part-time shift name',
+      date: scheduleDate(scheduleToday()),
+      startTime: '10:30',
+      endTime: '14:30',
+      isOvernight: false,
+      status: 'Approved',
+      color: '#10b981',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShiftScheduleScreen(loadSchedule: (_, _) async => [shift]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('Shift card displays employee name for manager overview', (
     tester,
   ) async {
@@ -294,7 +429,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Nguyễn Văn A'), findsOneWidget);
+    expect(find.textContaining('Nguyễn Văn A'), findsOneWidget);
     expect(find.text('Ca sáng'), findsOneWidget);
     expect(find.text('08:00 – 17:00'), findsOneWidget);
   });

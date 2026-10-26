@@ -9,7 +9,9 @@ import 'theme.dart';
 enum _ResetStep { email, code, password, success }
 
 class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({super.key});
+  const ForgotPasswordScreen({super.key, this.initialEmail = ''});
+
+  final String initialEmail;
 
   @override
   State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
@@ -39,6 +41,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     _passwordController.dispose();
     _confirmationController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.text = widget.initialEmail;
   }
 
   Future<void> _requestCode() async {
