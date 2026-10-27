@@ -109,7 +109,8 @@ class _EmployeeLeaveScreenState extends State<EmployeeLeaveScreen> {
                               children: [
                                 const Icon(Icons.account_circle, color: AppColors.primaryOrange, size: 36),
                                 const SizedBox(width: 12),
-                                Column(
+                                Expanded(
+                                  child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
@@ -122,6 +123,7 @@ class _EmployeeLeaveScreenState extends State<EmployeeLeaveScreen> {
                                       style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                                     ),
                                   ],
+                                ),
                                 ),
                               ],
                             ),

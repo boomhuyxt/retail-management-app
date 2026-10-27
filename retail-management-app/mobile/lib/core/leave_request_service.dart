@@ -141,6 +141,7 @@ class LeavePreviewModel {
   final List<String> warnings;
   final bool hasConflict;
   final String? conflictReason;
+  final int? existingVersion;
   final List<Map<String, dynamic>> effectiveIntervals;
   final List<Map<String, dynamic>> affectedAssignments;
 
@@ -156,6 +157,7 @@ class LeavePreviewModel {
     required this.warnings,
     required this.hasConflict,
     this.conflictReason,
+    this.existingVersion,
     this.effectiveIntervals = const [],
     this.affectedAssignments = const [],
   });
@@ -178,6 +180,7 @@ class LeavePreviewModel {
           [],
       hasConflict: json['hasConflict'] == true,
       conflictReason: json['conflictReason'] as String?,
+      existingVersion: (json['existingVersion'] as num?)?.toInt(),
       effectiveIntervals: (json['effectiveIntervals'] as List? ?? [])
           .cast<Map<String, dynamic>>(),
       affectedAssignments: (json['affectedAssignments'] as List? ?? [])
@@ -187,6 +190,105 @@ class LeavePreviewModel {
 }
 
 class LeaveRequestService {
+  static Future<List<LeaveRequestItem>> getAdminLeaveRequests({
+    String? status,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    final queryParams = {'page': '$page', 'pageSize': '$pageSize'};
+    if (status != null && status.isNotEmpty) queryParams['status'] = status;
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/leave-requests')
+        .replace(queryParameters: queryParams);
+    final response = await AuthService.authenticatedRequest(
+      (token) => http.get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 15)),
+    );
+    if (response.statusCode != 200) {
+      throw Exception(_parseErrorMessage(response));
+    }
+    final map = jsonDecode(utf8.decode(response.bodyBytes))
+        as Map<String, dynamic>;
+    final items = map['items'] as List<dynamic>? ?? [];
+    return items
+        .map((item) => LeaveRequestItem.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<LeavePreviewModel> reviewPreview(int id) async {
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/leave-requests/$id/review-preview',
+    );
+    final response = await AuthService.authenticatedRequest(
+      (token) => http.get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 15)),
+    );
+    if (response.statusCode != 200) {
+      throw Exception(_parseErrorMessage(response));
+    }
+    return LeavePreviewModel.fromJson(
+      jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+    );
+  }
+
+  static Future<LeaveRequestItem> approve({
+    required int id,
+    required int version,
+    required String previewToken,
+    required String payrollTreatment,
+    String? reviewNote,
+    bool longLeaveAcknowledged = false,
+    bool expandedCoverageAcknowledged = false,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/leave-requests/$id/approve');
+    final response = await AuthService.authenticatedRequest(
+      (token) => http.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'version': version,
+          'previewToken': previewToken,
+          'payrollTreatment': payrollTreatment,
+          'reviewNote': reviewNote,
+          'longLeaveAcknowledged': longLeaveAcknowledged,
+          'expandedCoverageAcknowledged': expandedCoverageAcknowledged,
+        }),
+      ).timeout(const Duration(seconds: 15)),
+    );
+    if (response.statusCode != 200) {
+      throw Exception(_parseErrorMessage(response));
+    }
+    return LeaveRequestItem.fromJson(
+      jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+    );
+  }
+
+  static Future<LeaveRequestItem> reject({
+    required int id,
+    required int version,
+    required String reason,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/leave-requests/$id/reject');
+    final response = await AuthService.authenticatedRequest(
+      (token) => http.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'version': version, 'reason': reason}),
+      ).timeout(const Duration(seconds: 15)),
+    );
+    if (response.statusCode != 200) {
+      throw Exception(_parseErrorMessage(response));
+    }
+    return LeaveRequestItem.fromJson(
+      jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+    );
+  }
+
   static Future<Map<String, dynamic>> getDetail(int id) async {
     final response = await AuthService.authenticatedRequest(
       (token) => http
@@ -196,8 +298,9 @@ class LeaveRequestService {
           )
           .timeout(const Duration(seconds: 15)),
     );
-    if (response.statusCode != 200)
+    if (response.statusCode != 200) {
       throw Exception(_parseErrorMessage(response));
+    }
     return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
   }
 
