@@ -4,6 +4,7 @@ import 'admin_leave_management_screen.dart';
 import 'attendance_history_screen.dart';
 import 'core/api_config.dart';
 import 'core/auth_service.dart';
+import 'core/ble_attendance_service.dart';
 import 'forgot_password_screen.dart';
 import 'profile_detail_screen.dart'; // Import màn hình Chi tiết thông tin cá nhân
 import 'theme.dart';
@@ -47,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (confirm == true) {
+      await BleAttendanceService().stopPresence();
       await AuthService.logout();
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/login');

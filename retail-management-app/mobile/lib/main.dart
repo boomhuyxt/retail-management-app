@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'leave_requests_screen.dart';
 import 'package:flutter/material.dart';
 import 'core/auth_service.dart';
@@ -9,6 +10,7 @@ import 'schedule_screen.dart';
 import 'theme.dart';
 
 import 'core/api_config.dart';
+import 'core/ble_attendance_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -16,6 +18,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiConfig.loadSavedBaseUrl();
   AuthService.onSessionExpired = () {
+    unawaited(BleAttendanceService().stopPresence().catchError((Object _) {}));
     navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
   };
   runApp(const MyApp());

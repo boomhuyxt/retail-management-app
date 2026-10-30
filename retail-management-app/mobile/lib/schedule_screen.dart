@@ -285,7 +285,51 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
   }
 
   /// Mở BottomSheet phân ca mới cho nhân viên (Dành cho Quản lý / Chủ shop)
+  Future<int?> _chooseShop() async {
+    // The server derives a Manager's shop from the authenticated account.
+    if (AuthService.currentUser?.role != 'Admin') return null;
+    try {
+      final shops = await ScheduleService.getShops();
+      if (!mounted) return null;
+      if (shops.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Chưa có cửa hàng hoạt động để phân ca.'),
+          ),
+        );
+        return null;
+      }
+      return await showDialog<int>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('Cửa hàng phụ trách ca'),
+          children: shops
+              .map(
+                (shop) => SimpleDialogOption(
+                  onPressed: () =>
+                      Navigator.pop(ctx, (shop['ownerId'] as num).toInt()),
+                  child: Text('${shop['name']} · ${shop['ownerName']}'),
+                ),
+              )
+              .toList(),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không tải được cửa hàng: $error')),
+        );
+      }
+      return null;
+    }
+  }
+
   void _openAssignShiftSheet() async {
+    final shopOwnerId = await _chooseShop();
+    if (!mounted ||
+        (AuthService.currentUser?.role == 'Admin' && shopOwnerId == null)) {
+      return;
+    }
     if (_employees.isEmpty || _templates.isEmpty) {
       try {
         final emps = await ScheduleService.getEmployees();
@@ -1003,6 +1047,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                                 try {
                                   final dateStr = scheduleDate(sheetDate);
                                   await ScheduleService.assignShift(
+                                    shopOwnerId: shopOwnerId,
                                     employeeId: selectedEmpId!,
                                     shiftDate: dateStr,
                                     shiftTemplateId: selectedTemplateId,
@@ -1222,6 +1267,11 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
   }
 
   Future<void> _editShift(ScheduleShift shift) async {
+    final shopOwnerId = shift.shopOwnerId ?? await _chooseShop();
+    if (!mounted ||
+        (AuthService.currentUser?.role == 'Admin' && shopOwnerId == null)) {
+      return;
+    }
     final name = TextEditingController(text: shift.name);
     final start = TextEditingController(text: shift.startTime);
     final end = TextEditingController(text: shift.endTime);
@@ -1274,6 +1324,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                         setDialogState(() => saving = true);
                         try {
                           await ScheduleService.updateAssignment(
+                            shopOwnerId: shopOwnerId,
                             assignmentId: shift.assignmentId,
                             shiftName: name.text.trim(),
                             startTime: start.text.trim(),
