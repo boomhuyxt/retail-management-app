@@ -79,4 +79,12 @@ class ApiConfig {
   static String get shiftHistoryUrl => '$baseUrl/api/attendance/history';
   static String get adminAttendanceHistoryUrl =>
       '$baseUrl/api/attendance/admin/history';
+
+  static String get chatbotChatUrl => '$baseUrl/api/chatbot/chat';
+  static String get chatbotTemplatesUrl => '$baseUrl/api/chatbot/templates';
+  static String get chatbotHealthUrl => '$baseUrl/api/chatbot/health';
+  static String get aiScheduleGenerateUrl =>
+      '$baseUrl/api/shift-assignments/ai-generate';
+  static String get batchAssignShiftsUrl =>
+      '$baseUrl/api/shift-assignments/batch';
 }

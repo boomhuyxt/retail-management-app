@@ -8,6 +8,7 @@ import 'core/ble_attendance_service.dart';
 import 'forgot_password_screen.dart';
 import 'profile_detail_screen.dart'; // Import màn hình Chi tiết thông tin cá nhân
 import 'theme.dart';
+import 'chatbot_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -188,6 +189,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               }),
+              _buildMenuTile(
+                Icons.smart_toy_outlined,
+                'Trợ lý AI Manage365 (Chatbot & Phân ca)',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ChatbotScreen()),
+                  );
+                },
+              ),
               _buildMenuTile(Icons.help_outline, 'Trợ giúp & Hỗ trợ', _showSupportDialog),
 
               const SizedBox(height: 10),
@@ -280,6 +291,32 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryOrange,
+                side: const BorderSide(color: AppColors.primaryOrange),
+                minimumSize: const Size.fromHeight(44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              icon: const Icon(Icons.smart_toy_outlined, size: 18),
+              label: const Text(
+                'Hỏi Trợ lý AI Manage365',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ChatbotScreen()),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: FilledButton(

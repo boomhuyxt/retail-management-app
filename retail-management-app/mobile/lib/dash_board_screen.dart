@@ -8,6 +8,7 @@ import 'core/attendance_service.dart';
 import 'core/ble_attendance_service.dart';
 import 'core/auth_service.dart';
 import 'theme.dart';
+import 'chatbot_screen.dart';
 
 class DashboardQRScreen extends StatefulWidget {
   const DashboardQRScreen({super.key});
@@ -889,23 +890,31 @@ class _DashboardQRScreenState extends State<DashboardQRScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        actions: _isAdminOrOwner
-            ? []
-            : [
-                IconButton(
-                  icon: const Icon(
-                    Icons.keyboard,
-                    color: AppColors.primaryOrange,
-                  ),
-                  tooltip: 'Nhập mã QR thủ công',
-                  onPressed: _showManualInputDialog,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.cameraswitch, color: Colors.grey),
-                  tooltip: 'Đổi camera',
-                  onPressed: () => _scannerController.switchCamera(),
-                ),
-              ],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.smart_toy_outlined, color: AppColors.primaryOrange),
+            tooltip: 'Trợ lý AI Manage365',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ChatbotScreen()),
+            ),
+          ),
+          if (!_isAdminOrOwner) ...[
+            IconButton(
+              icon: const Icon(
+                Icons.keyboard,
+                color: AppColors.primaryOrange,
+              ),
+              tooltip: 'Nhập mã QR thủ công',
+              onPressed: _showManualInputDialog,
+            ),
+            IconButton(
+              icon: const Icon(Icons.cameraswitch, color: Colors.grey),
+              tooltip: 'Đổi camera',
+              onPressed: () => _scannerController.switchCamera(),
+            ),
+          ],
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(

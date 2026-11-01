@@ -5,6 +5,7 @@ import 'core/auth_service.dart';
 import 'core/schedule_service.dart';
 import 'theme.dart';
 import 'widgets/wheel_time_picker.dart';
+import 'chatbot_screen.dart';
 
 class _OverlapStatus {
   final List<ScheduleShift> overlappingShifts;
@@ -1145,7 +1146,7 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
 
     if (confirmed == true) {
       try {
-        await ScheduleService.deleteShift(shift.assignmentId);
+        await ScheduleService.deleteShift(shift.assignmentId, shopOwnerId: shift.shopOwnerId);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1373,6 +1374,759 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
     }
   }
 
+
+  Future<void> _openAiScheduleSheet() async {
+    setState(() => _isFabMenuOpen = false);
+
+    final shopOwnerId = await _chooseShop();
+    if (!mounted || shopOwnerId == null) return;
+
+    DateTime selectedWeekStart = _monday;
+    int minStaffPerShift = 1;
+    int maxShiftsPerWeek = 5;
+    bool keepExisting = false;
+
+    bool isGenerating = false;
+    bool isApplying = false;
+    AiScheduleResponse? aiResult;
+    String? generateError;
+
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.88,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppColors.primaryOrange, Color(0xFFFF8A65)],
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.auto_awesome,
+                              color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'AI Phân Ca Làm Việc',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textDark,
+                                ),
+                              ),
+                              Text(
+                                aiResult == null
+                                    ? 'Cấu hình tham số và tối ưu hóa lịch tuần'
+                                    : 'Xem trước và áp dụng kết quả từ AI',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(sheetCtx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: isGenerating
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      AppColors.primaryOrange),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'AI đang phân tích định biên & xếp ca...',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Đảm bảo quy định nghỉ chuyển ca 12h và giới hạn giờ làm',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          )
+                        : (aiResult == null
+                            ? _buildAiConfigView(
+                                selectedWeekStart: selectedWeekStart,
+                                minStaffPerShift: minStaffPerShift,
+                                maxShiftsPerWeek: maxShiftsPerWeek,
+                                keepExisting: keepExisting,
+                                generateError: generateError,
+                                onSelectWeek: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: selectedWeekStart,
+                                    firstDate: DateTime(2025),
+                                    lastDate: DateTime(2030),
+                                  );
+                                  if (picked != null) {
+                                    final monday = picked.subtract(
+                                        Duration(days: picked.weekday - 1));
+                                    setSheetState(
+                                        () => selectedWeekStart = monday);
+                                  }
+                                },
+                                onChangeMinStaff: (val) =>
+                                    setSheetState(() => minStaffPerShift = val),
+                                onChangeMaxShifts: (val) =>
+                                    setSheetState(() => maxShiftsPerWeek = val),
+                                onToggleKeepExisting: (val) =>
+                                    setSheetState(() => keepExisting = val),
+                                onGenerate: () async {
+                                  setSheetState(() {
+                                    isGenerating = true;
+                                    generateError = null;
+                                  });
+                                  try {
+                                    final res =
+                                        await ScheduleService.generateAiSchedule(
+                                      AiScheduleRequest(
+                                        weekStartDate:
+                                            scheduleDate(selectedWeekStart),
+                                        shopOwnerId: shopOwnerId,
+                                        minEmployeesPerShift: minStaffPerShift,
+                                        maxShiftsPerEmployeePerWeek:
+                                            maxShiftsPerWeek,
+                                        keepExistingShifts: keepExisting,
+                                      ),
+                                    );
+                                    setSheetState(() {
+                                      isGenerating = false;
+                                      aiResult = res;
+                                    });
+                                  } catch (e) {
+                                    setSheetState(() {
+                                      isGenerating = false;
+                                      generateError = e
+                                          .toString()
+                                          .replaceFirst('Exception: ', '');
+                                    });
+                                  }
+                                },
+                              )
+                            : _buildAiResultView(
+                                result: aiResult!,
+                                isApplying: isApplying,
+                                onReconfigure: () =>
+                                    setSheetState(() => aiResult = null),
+                                onApply: () async {
+                                  if (aiResult!
+                                      .batchAssignmentPayload.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                            'Không có ca làm việc nào để áp dụng.'),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  setSheetState(() => isApplying = true);
+                                  try {
+                                    final count =
+                                        await ScheduleService.applyBatchShifts(
+                                      aiResult!.batchAssignmentPayload,
+                                    );
+                                    if (mounted) {
+                                      Navigator.pop(sheetCtx);
+                                      ScaffoldMessenger.of(this.context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          backgroundColor:
+                                              const Color(0xFF10B981),
+                                          content: Text(
+                                            'Đã áp dụng thành công $count ca làm việc bằng AI!',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      );
+                                      _load();
+                                    }
+                                  } catch (err) {
+                                    setSheetState(() => isApplying = false);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: Colors.red,
+                                        content: Text(
+                                          'Lỗi áp dụng phân ca: ${err.toString().replaceFirst('Exception: ', '')}',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              )),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAiConfigView({
+    required DateTime selectedWeekStart,
+    required int minStaffPerShift,
+    required int maxShiftsPerWeek,
+    required bool keepExisting,
+    required String? generateError,
+    required VoidCallback onSelectWeek,
+    required ValueChanged<int> onChangeMinStaff,
+    required ValueChanged<int> onChangeMaxShifts,
+    required ValueChanged<bool> onToggleKeepExisting,
+    required VoidCallback onGenerate,
+  }) {
+    final endOfWeek = selectedWeekStart.add(const Duration(days: 6));
+    final weekStr =
+        '${DateFormat('dd/MM/yyyy').format(selectedWeekStart)} – ${DateFormat('dd/MM/yyyy').format(endOfWeek)}';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.psychology,
+                    color: AppColors.primaryOrange, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'AI Manage365 sẽ tự động phân bổ ca làm việc công bằng, '
+                    'đảm bảo nghỉ giữa ca ≥ 12h và tuân thủ Luật Lao động.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Colors.brown.shade800,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Tuần áp dụng phân ca:',
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark),
+          ),
+          const SizedBox(height: 6),
+          InkWell(
+            onTap: onSelectWeek,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(10),
+                color: Colors.white,
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.date_range,
+                      color: AppColors.primaryOrange, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      weekStr,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Nhân viên tối thiểu / ca:',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Định biên đảm bảo vận hành ca',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline,
+                        color: Colors.grey),
+                    onPressed: minStaffPerShift > 1
+                        ? () => onChangeMinStaff(minStaffPerShift - 1)
+                        : null,
+                  ),
+                  Text(
+                    '$minStaffPerShift',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline,
+                        color: AppColors.primaryOrange),
+                    onPressed: minStaffPerShift < 10
+                        ? () => onChangeMinStaff(minStaffPerShift + 1)
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const Divider(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Số ca tối đa / nhân viên / tuần:',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Tránh làm quá giờ tiêu chuẩn',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline,
+                        color: Colors.grey),
+                    onPressed: maxShiftsPerWeek > 1
+                        ? () => onChangeMaxShifts(maxShiftsPerWeek - 1)
+                        : null,
+                  ),
+                  Text(
+                    '$maxShiftsPerWeek',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline,
+                        color: AppColors.primaryOrange),
+                    onPressed: maxShiftsPerWeek < 14
+                        ? () => onChangeMaxShifts(maxShiftsPerWeek + 1)
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const Divider(),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Giữ lại các ca làm việc hiện có',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            ),
+            subtitle: const Text(
+              'Chỉ bổ sung nhân sự vào các ca còn thiếu định biên',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+            value: keepExisting,
+            activeColor: AppColors.primaryOrange,
+            onChanged: onToggleKeepExisting,
+          ),
+          if (generateError != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline,
+                      color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      generateError,
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.red.shade900),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryOrange,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 2,
+            ),
+            icon: const Icon(Icons.auto_awesome, size: 20),
+            label: const Text(
+              'Chạy thuật toán AI Phân ca',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            onPressed: onGenerate,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiResultView({
+    required AiScheduleResponse result,
+    required bool isApplying,
+    required VoidCallback onReconfigure,
+    required VoidCallback onApply,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: AppColors.bgLightCream,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _aiStatBox(
+                    '${result.proposedShiftCount}',
+                    'Ca đề xuất',
+                    Icons.event_note,
+                    AppColors.primaryOrange,
+                  ),
+                  _aiStatBox(
+                    '${result.employeesAssigned}/${result.totalEmployeesConsidered}',
+                    'NV tham gia',
+                    Icons.people,
+                    const Color(0xFF10B981),
+                  ),
+                  _aiStatBox(
+                    result.averageShiftsPerEmployee.toStringAsFixed(1),
+                    'Ca TB / NV',
+                    Icons.speed,
+                    const Color(0xFF3B82F6),
+                  ),
+                ],
+              ),
+              if (result.aiInsights.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                ...result.aiInsights.take(2).map(
+                      (insight) => Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.check_circle,
+                                size: 14, color: Color(0xFF10B981)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                insight,
+                                style: const TextStyle(
+                                    fontSize: 11.5, color: AppColors.textDark),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+              ],
+              if (result.warnings.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                ...result.warnings.take(2).map(
+                      (warn) => Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.warning_amber_rounded,
+                                size: 14, color: Colors.orange),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                warn,
+                                style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: Colors.orange.shade900),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+              ],
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: result.proposedShifts.isEmpty
+              ? const Center(
+                  child: Text(
+                    'AI không tạo ra ca làm việc nào với các ràng buộc hiện tại.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(14),
+                  itemCount: result.proposedShifts.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, idx) {
+                    final shift = result.proposedShifts[idx];
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryOrange,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      shift.employeeName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13.5,
+                                        color: AppColors.textDark,
+                                      ),
+                                    ),
+                                    if (shift.employeeCode.isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '(${shift.employeeCode})',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '${shift.dayOfWeekName ?? ''} ${shift.shiftDate}',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryOrange
+                                            .withValues(alpha: 0.1),
+                                        borderRadius:
+                                            BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '${shift.shiftName}: ${shift.startTime} – ${shift.endTime}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.primaryOrange,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                offset: const Offset(0, -2),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              OutlinedButton(
+                onPressed: isApplying ? null : onReconfigure,
+                style: OutlinedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('Cấu hình lại'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: isApplying
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.check_circle_outline, size: 18),
+                  label: Text(
+                    isApplying
+                        ? 'Đang áp dụng...'
+                        : 'Áp dụng ${result.proposedShiftCount} ca vào hệ thống',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  onPressed: isApplying ? null : onApply,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _aiStatBox(
+      String value, String label, IconData icon, Color color) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+        ),
+      ],
+    );
+  }
+
   Widget _quickAction(String label, IconData icon, VoidCallback onTap) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 10),
@@ -1404,6 +2158,28 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
       appBar: AppBar(
         title: Text(_isManager ? 'Lịch làm việc & Phân ca' : 'Lịch làm việc'),
         actions: [
+          IconButton(
+            tooltip: 'Trợ lý AI Manage365',
+            icon: const Icon(Icons.smart_toy_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChatbotScreen(
+                    onOpenAiScheduler:
+                        _isManager ? _openAiScheduleSheet : null,
+                  ),
+                ),
+              );
+            },
+          ),
+          if (_isManager)
+            IconButton(
+              tooltip: 'Phân ca bằng AI',
+              icon: const Icon(Icons.auto_awesome,
+                  color: AppColors.primaryOrange),
+              onPressed: _openAiScheduleSheet,
+            ),
           TextButton(
             onPressed: () {
               setState(() => _selectedDate = scheduleToday());
@@ -1421,6 +2197,11 @@ class _ShiftScheduleScreenState extends State<ShiftScheduleScreen>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   if (_isFabMenuOpen) ...[
+                    _quickAction(
+                      'Phân ca bằng AI',
+                      Icons.auto_awesome,
+                      _openAiScheduleSheet,
+                    ),
                     _quickAction(
                       'Thêm ca làm mới',
                       Icons.add_circle_outline,

@@ -11,6 +11,8 @@ import 'theme.dart';
 
 import 'core/api_config.dart';
 import 'core/ble_attendance_service.dart';
+import 'chatbot_screen.dart';
+import 'widgets/chatbot_bubble.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -43,6 +45,7 @@ class MyApp extends StatelessWidget {
         '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/main': (context) => const MainShellScreen(),
         '/leave-requests': (context) => const LeaveRequestsScreen(),
+        '/chatbot': (context) => const ChatbotScreen(),
       },
     );
   }
@@ -72,7 +75,12 @@ class _MainShellScreenState extends State<MainShellScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      body: Stack(
+        children: [
+          IndexedStack(index: _currentIndex, children: _screens),
+          const ChatbotFloatingBubble(),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         backgroundColor: Colors.transparent,

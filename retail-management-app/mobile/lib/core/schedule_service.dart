@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'api_config.dart';
 import 'auth_service.dart';
@@ -423,6 +423,7 @@ class ScheduleService {
 
   static Future<void> deleteShift(
     int assignmentId, {
+    int? shopOwnerId,
     http.Client? client,
   }) async {
     final uri = Uri.parse(
@@ -433,17 +434,73 @@ class ScheduleService {
           (client != null
                   ? client.delete(
                       uri,
-                      headers: {'Authorization': 'Bearer $token'},
+                      headers: {
+                        'Authorization': 'Bearer $token',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                      },
                     )
                   : http.delete(
                       uri,
-                      headers: {'Authorization': 'Bearer $token'},
+                      headers: {
+                        'Authorization': 'Bearer $token',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                      },
                     ))
               .timeout(const Duration(seconds: 15)),
     );
-    if (response.statusCode != 204 && response.statusCode != 200) {
-      throw Exception('Không thể hủy ca làm (${response.statusCode}).');
+    if (response.statusCode == 204 || response.statusCode == 200) {
+      return;
     }
+
+    // Fallback: nếu DELETE trả về lỗi (ví dụ 400), thử hủy qua PUT status: 'Cancelled'
+    try {
+      final fallbackUri = Uri.parse(
+        '${ApiConfig.baseUrl}/api/shift-assignments/$assignmentId',
+      );
+      final fallbackBody = jsonEncode({
+        'status': 'Cancelled',
+        if (shopOwnerId != null) 'shopOwnerId': shopOwnerId,
+      });
+      final fallbackRes = await AuthService.authenticatedRequest(
+        (token) => (client != null
+                ? client.put(
+                    fallbackUri,
+                    headers: {
+                      'Authorization': 'Bearer $token',
+                      'Content-Type': 'application/json',
+                      'Accept': 'application/json',
+                    },
+                    body: fallbackBody,
+                  )
+                : http.put(
+                    fallbackUri,
+                    headers: {
+                      'Authorization': 'Bearer $token',
+                      'Content-Type': 'application/json',
+                      'Accept': 'application/json',
+                    },
+                    body: fallbackBody,
+                  ))
+            .timeout(const Duration(seconds: 15)),
+      );
+      if (fallbackRes.statusCode == 200 || fallbackRes.statusCode == 204) {
+        return;
+      }
+    } catch (_) {}
+
+    Map<String, dynamic>? payload;
+    try {
+      payload =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    } catch (_) {}
+
+    final errorMsg = payload?['title'] ??
+        payload?['detail'] ??
+        payload?['message'] ??
+        'Không thể hủy ca làm (${response.statusCode}).';
+    throw Exception(errorMsg);
   }
 
   static Future<ScheduleShift> updateAssignment({
@@ -500,5 +557,268 @@ class ScheduleService {
       );
     }
     return ScheduleShift.fromJson(payload);
+  }
+
+  /// AI tự động xếp lịch ca làm việc thông minh và tối ưu cho tuần (Manager / Admin)
+  static Future<AiScheduleResponse> generateAiSchedule(
+    AiScheduleRequest request, {
+    http.Client? client,
+  }) async {
+    final uri = Uri.parse(ApiConfig.aiScheduleGenerateUrl);
+    final body = jsonEncode(request.toJson());
+
+    final response = await AuthService.authenticatedRequest(
+      (token) => (client != null
+              ? client.post(
+                  uri,
+                  headers: {
+                    'Authorization': 'Bearer $token',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                  },
+                  body: body,
+                )
+              : http.post(
+                  uri,
+                  headers: {
+                    'Authorization': 'Bearer $token',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                  },
+                  body: body,
+                ))
+          .timeout(const Duration(seconds: 40)),
+    );
+
+    Map<String, dynamic>? payload;
+    try {
+      payload =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    } catch (_) {}
+
+    if (response.statusCode != 200 || payload == null) {
+      final msg = payload?['title'] ??
+          payload?['detail'] ??
+          payload?['message'] ??
+          'Không thể khởi tạo lịch phân ca bằng AI (${response.statusCode}).';
+      throw Exception(msg);
+    }
+
+    return AiScheduleResponse.fromJson(payload);
+  }
+
+  /// Phân ca hàng loạt vào hệ thống (áp dụng kết quả từ AI đề xuất)
+  static Future<int> applyBatchShifts(
+    List<Map<String, dynamic>> assignments, {
+    http.Client? client,
+  }) async {
+    final uri = Uri.parse(ApiConfig.batchAssignShiftsUrl);
+    final body = jsonEncode({'assignments': assignments});
+
+    final response = await AuthService.authenticatedRequest(
+      (token) => (client != null
+              ? client.post(
+                  uri,
+                  headers: {
+                    'Authorization': 'Bearer $token',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                  },
+                  body: body,
+                )
+              : http.post(
+                  uri,
+                  headers: {
+                    'Authorization': 'Bearer $token',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                  },
+                  body: body,
+                ))
+          .timeout(const Duration(seconds: 30)),
+    );
+
+    Map<String, dynamic>? payload;
+    try {
+      payload =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    } catch (_) {}
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      final msg = payload?['title'] ??
+          payload?['detail'] ??
+          payload?['message'] ??
+          'Không thể áp dụng phân ca hàng loạt (${response.statusCode}).';
+      throw Exception(msg);
+    }
+
+    final count =
+        (payload?['assignedCount'] as num?)?.toInt() ?? assignments.length;
+    return count;
+  }
+}
+
+class AiScheduleRequest {
+  final String weekStartDate;
+  final int? shopOwnerId;
+  final List<int>? selectedTemplateIds;
+  final int minEmployeesPerShift;
+  final int maxShiftsPerEmployeePerWeek;
+  final bool keepExistingShifts;
+  final List<int>? excludeEmployeeIds;
+
+  const AiScheduleRequest({
+    required this.weekStartDate,
+    this.shopOwnerId,
+    this.selectedTemplateIds,
+    this.minEmployeesPerShift = 1,
+    this.maxShiftsPerEmployeePerWeek = 5,
+    this.keepExistingShifts = false,
+    this.excludeEmployeeIds,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'weekStartDate': weekStartDate,
+      if (shopOwnerId != null) 'shopOwnerId': shopOwnerId,
+      if (selectedTemplateIds != null && selectedTemplateIds!.isNotEmpty)
+        'selectedTemplateIds': selectedTemplateIds,
+      'minEmployeesPerShift': minEmployeesPerShift,
+      'maxShiftsPerEmployeePerWeek': maxShiftsPerEmployeePerWeek,
+      'keepExistingShifts': keepExistingShifts,
+      if (excludeEmployeeIds != null && excludeEmployeeIds!.isNotEmpty)
+        'excludeEmployeeIds': excludeEmployeeIds,
+    };
+  }
+}
+
+class AiProposedShift {
+  final int employeeId;
+  final String employeeName;
+  final String employeeCode;
+  final String? departmentName;
+  final String shiftDate;
+  final String? dayOfWeekName;
+  final int? shiftTemplateId;
+  final String shiftName;
+  final String startTime;
+  final String endTime;
+  final bool isOvernight;
+  final String color;
+  final String? reason;
+
+  const AiProposedShift({
+    required this.employeeId,
+    required this.employeeName,
+    required this.employeeCode,
+    this.departmentName,
+    required this.shiftDate,
+    this.dayOfWeekName,
+    this.shiftTemplateId,
+    required this.shiftName,
+    required this.startTime,
+    required this.endTime,
+    required this.isOvernight,
+    required this.color,
+    this.reason,
+  });
+
+  factory AiProposedShift.fromJson(Map<String, dynamic> json) {
+    return AiProposedShift(
+      employeeId: (json['employeeId'] as num?)?.toInt() ?? 0,
+      employeeName: json['employeeName'] as String? ?? 'Nhân viên',
+      employeeCode: json['employeeCode'] as String? ?? '',
+      departmentName: json['departmentName'] as String?,
+      shiftDate: json['shiftDate'] as String? ?? '',
+      dayOfWeekName: json['dayOfWeekName'] as String?,
+      shiftTemplateId: (json['shiftTemplateId'] as num?)?.toInt(),
+      shiftName: json['shiftName'] as String? ?? 'Ca làm',
+      startTime: json['startTime'] as String? ?? '08:00',
+      endTime: json['endTime'] as String? ?? '16:00',
+      isOvernight: json['isOvernight'] == true,
+      color: json['color'] as String? ?? '#f59e0b',
+      reason: json['reason'] as String?,
+    );
+  }
+}
+
+class AiDayCoverageDto {
+  final String? date;
+  final String? dayOfWeek;
+  final int totalSlotsCovered;
+  final int totalStaffAssigned;
+
+  const AiDayCoverageDto({
+    this.date,
+    this.dayOfWeek,
+    this.totalSlotsCovered = 0,
+    this.totalStaffAssigned = 0,
+  });
+
+  factory AiDayCoverageDto.fromJson(Map<String, dynamic> json) {
+    return AiDayCoverageDto(
+      date: json['date'] as String?,
+      dayOfWeek: json['dayOfWeek'] as String?,
+      totalSlotsCovered: (json['totalSlotsCovered'] as num?)?.toInt() ?? 0,
+      totalStaffAssigned: (json['totalStaffAssigned'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class AiScheduleResponse {
+  final String? weekStartDate;
+  final String? weekEndDate;
+  final int proposedShiftCount;
+  final int totalEmployeesConsidered;
+  final int employeesAssigned;
+  final double averageShiftsPerEmployee;
+  final List<AiProposedShift> proposedShifts;
+  final List<Map<String, dynamic>> batchAssignmentPayload;
+  final List<AiDayCoverageDto> dailyCoverage;
+  final List<String> aiInsights;
+  final List<String> warnings;
+  final String? summary;
+
+  const AiScheduleResponse({
+    this.weekStartDate,
+    this.weekEndDate,
+    this.proposedShiftCount = 0,
+    this.totalEmployeesConsidered = 0,
+    this.employeesAssigned = 0,
+    this.averageShiftsPerEmployee = 0.0,
+    this.proposedShifts = const [],
+    this.batchAssignmentPayload = const [],
+    this.dailyCoverage = const [],
+    this.aiInsights = const [],
+    this.warnings = const [],
+    this.summary,
+  });
+
+  factory AiScheduleResponse.fromJson(Map<String, dynamic> json) {
+    return AiScheduleResponse(
+      weekStartDate: json['weekStartDate'] as String?,
+      weekEndDate: json['weekEndDate'] as String?,
+      proposedShiftCount: (json['proposedShiftCount'] as num?)?.toInt() ?? 0,
+      totalEmployeesConsidered:
+          (json['totalEmployeesConsidered'] as num?)?.toInt() ?? 0,
+      employeesAssigned: (json['employeesAssigned'] as num?)?.toInt() ?? 0,
+      averageShiftsPerEmployee:
+          (json['averageShiftsPerEmployee'] as num?)?.toDouble() ?? 0.0,
+      proposedShifts: (json['proposedShifts'] as List? ?? [])
+          .map((e) => AiProposedShift.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      batchAssignmentPayload: (json['batchAssignmentPayload'] as List? ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
+      dailyCoverage: (json['dailyCoverage'] as List? ?? [])
+          .map((e) => AiDayCoverageDto.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      aiInsights: (json['aiInsights'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      warnings:
+          (json['warnings'] as List? ?? []).map((e) => e.toString()).toList(),
+      summary: json['summary'] as String?,
+    );
   }
 }
