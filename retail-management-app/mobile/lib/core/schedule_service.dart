@@ -115,6 +115,7 @@ class ScheduleShift {
   final DateTime? checkOutAt;
   final bool isOnLeave;
   final String? leaveStatus;
+  final int? shopOwnerId;
 
   const ScheduleShift({
     required this.assignmentId,
@@ -134,6 +135,7 @@ class ScheduleShift {
     this.checkOutAt,
     this.isOnLeave = false,
     this.leaveStatus,
+    this.shopOwnerId,
   });
 
   factory ScheduleShift.fromJson(Map<String, dynamic> json) {
@@ -156,6 +158,7 @@ class ScheduleShift {
       checkOutAt: DateTime.tryParse(attendance?['checkOutAt'] as String? ?? ''),
       isOnLeave: json['isOnLeave'] == true,
       leaveStatus: json['leaveStatus'] as String?,
+      shopOwnerId: (json['shopOwnerId'] as num?)?.toInt(),
     );
   }
 
@@ -171,6 +174,20 @@ class ScheduleShift {
 }
 
 class ScheduleService {
+  static Future<List<Map<String, dynamic>>> getShops() async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/shift-assignments/shops');
+    final response = await AuthService.authenticatedRequest(
+      (token) => http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 30)),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Không tải được cửa hàng (${response.statusCode}).');
+    }
+    return (jsonDecode(utf8.decode(response.bodyBytes)) as List)
+        .cast<Map<String, dynamic>>();
+  }
+
   static Future<List<ScheduleShift>> getSchedule(
     DateTime start,
     DateTime end, {
@@ -342,6 +359,7 @@ class ScheduleService {
   static Future<ScheduleShift> assignShift({
     required int employeeId,
     required String shiftDate,
+    int? shopOwnerId,
     int? shiftTemplateId,
     String? customShiftName,
     String? customStartTime,
@@ -354,6 +372,7 @@ class ScheduleService {
     final Map<String, dynamic> bodyData = {
       'employeeId': employeeId,
       'shiftDate': shiftDate,
+      if (shopOwnerId != null) 'shopOwnerId': shopOwnerId,
       if (note != null && note.isNotEmpty) 'note': note,
     };
     if (shiftTemplateId != null) {
@@ -429,6 +448,7 @@ class ScheduleService {
 
   static Future<ScheduleShift> updateAssignment({
     required int assignmentId,
+    int? shopOwnerId,
     String? shiftName,
     String? startTime,
     String? endTime,
@@ -440,6 +460,7 @@ class ScheduleService {
       '${ApiConfig.baseUrl}/api/shift-assignments/$assignmentId',
     );
     final body = jsonEncode({
+      if (shopOwnerId != null) 'shopOwnerId': shopOwnerId,
       if (shiftName != null) 'shiftName': shiftName,
       if (startTime != null) 'startTime': startTime,
       if (endTime != null) 'endTime': endTime,

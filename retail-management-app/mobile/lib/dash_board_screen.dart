@@ -1,9 +1,11 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'core/attendance_service.dart';
+import 'core/ble_attendance_service.dart';
 import 'core/auth_service.dart';
 import 'theme.dart';
 
@@ -14,7 +16,8 @@ class DashboardQRScreen extends StatefulWidget {
   State<DashboardQRScreen> createState() => _DashboardQRScreenState();
 }
 
-class _DashboardQRScreenState extends State<DashboardQRScreen> {
+class _DashboardQRScreenState extends State<DashboardQRScreen>
+    with WidgetsBindingObserver {
   final MobileScannerController _scannerController = MobileScannerController();
   bool _isProcessing = false;
   bool _isLoadingHistory = false;
@@ -26,18 +29,68 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
   String _adminQrData = '';
   int _qrSecondsLeft = 30;
   Timer? _qrTimer;
+  final BleAttendanceService _bleService = BleAttendanceService();
+  Timer? _bleRotationTimer;
+  Timer? _bleStatusTimer;
+  DateTime? _lastBleAttendanceAt;
+  bool _bleBusy = false;
+  String? _bleMessage;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkUserRole();
     _loadHistory();
+    _restoreBlePresence();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _resumeBlePresence();
+    }
+  }
+
+  Future<void> _resumeBlePresence() async {
+    if (!await _bleService.autoAttendanceEnabled ||
+        !_bleService.isAdvertising) {
+      return;
+    }
+    try {
+      await _bleService.refreshPresence();
+      await _refreshBleStatus();
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _bleMessage =
+              'Không làm mới được BLE khi mở lại ứng dụng: ${error.toString().replaceFirst('Bad state: ', '')}. QR vẫn dùng được.',
+        );
+      }
+    }
+  }
+
+  Future<void> _restoreBlePresence() async {
+    if (!await _bleService.autoAttendanceEnabled) return;
+    try {
+      await _startBlePresence();
+    } catch (_) {
+      if (mounted)
+        setState(
+          () => _bleMessage =
+              'Không thể tự khởi động BLE. Hãy mở ứng dụng và kiểm tra quyền Bluetooth; QR vẫn dùng được.',
+        );
+    }
   }
 
   void _checkUserRole() {
     final user = AuthService.currentUser;
     final role = user?.role.toLowerCase() ?? '';
-    final isAdmin = role == 'admin' || role == 'owner' || role == 'chủ cửa hàng' || role == 'manager';
+    final isAdmin =
+        role == 'admin' ||
+        role == 'owner' ||
+        role == 'chủ cửa hàng' ||
+        role == 'manager';
 
     setState(() {
       _isAdminOrOwner = isAdmin;
@@ -86,11 +139,233 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _qrTimer?.cancel();
+    _bleRotationTimer?.cancel();
+    _bleStatusTimer?.cancel();
     _scannerController.dispose();
     super.dispose();
   }
 
+  Future<void> _startBlePresence() async {
+    setState(() {
+      _bleBusy = true;
+      _bleMessage = null;
+    });
+    try {
+      await _bleService.startPresence();
+      if (!mounted) {
+        await _bleService.stopPresence();
+        return;
+      }
+      BleStatus? initialStatus;
+      try {
+        initialStatus = await _bleService.status();
+        _lastBleAttendanceAt = initialStatus.lastAttendanceAt;
+      } catch (_) {
+        _lastBleAttendanceAt = null;
+      }
+      _bleStatusTimer?.cancel();
+      _bleStatusTimer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => _refreshBleStatus(),
+      );
+      _bleRotationTimer?.cancel();
+      _bleRotationTimer = Timer.periodic(const Duration(seconds: 50), (
+        _,
+      ) async {
+        try {
+          await _bleService.refreshPresence();
+        } catch (_) {
+          if (mounted)
+            setState(
+              () => _bleMessage = 'BLE cần khởi động lại. QR vẫn dùng được.',
+            );
+        }
+      });
+      if (mounted) {
+        setState(
+          () => _bleMessage = initialStatus == null
+              ? 'Điện thoại đang phát BLE nhưng chưa đọc được trạng thái kiosk. Kiểm tra kết nối mạng hoặc dùng QR.'
+              : _bleStatusMessage(initialStatus),
+        );
+      }
+    } catch (error) {
+      if (mounted)
+        setState(
+          () => _bleMessage = error.toString().replaceFirst('Bad state: ', ''),
+        );
+    } finally {
+      if (mounted) setState(() => _bleBusy = false);
+    }
+  }
+
+  Future<void> _refreshBleStatus() async {
+    try {
+      final status = await _bleService.status();
+      final stamp = status.lastAttendanceAt;
+      if (mounted &&
+          stamp != null &&
+          stamp != _lastBleAttendanceAt &&
+          (status.lastAction == 'CHECK_IN' ||
+              status.lastAction == 'CHECK_OUT')) {
+        _lastBleAttendanceAt = stamp;
+        final actionText = status.lastAction == 'CHECK_IN'
+            ? 'Đã tự check-in BLE'
+            : 'Đã tự ghi nhận giờ rời cửa hàng; ca cần chủ shop đối soát';
+        setState(
+          () => _bleMessage =
+              '$actionText: ${status.lastShiftName ?? 'Ca làm việc'} lúc ${DateFormat('HH:mm').format(stamp)}.',
+        );
+        _loadHistory();
+      } else if (mounted && _bleService.isAdvertising) {
+        setState(() => _bleMessage = _bleStatusMessage(status));
+      }
+    } catch (_) {
+      if (mounted && _bleService.isAdvertising)
+        setState(
+          () => _bleMessage =
+              'Không tải được trạng thái BLE. Kiểm tra mạng hoặc dùng QR.',
+        );
+    }
+  }
+
+  String _bleStatusMessage(BleStatus status) {
+    if (status.scannerId == null) {
+      return 'Điện thoại đang phát BLE, nhưng ca hôm nay chưa được liên kết với kiosk cửa hàng. Kiểm tra ca đã lưu đúng cửa hàng; QR vẫn dùng được.';
+    }
+    if (!status.scannerOnline) {
+      return 'Kiosk ${status.scannerId} chưa trực tuyến. Kiểm tra bộ quét Windows, Bluetooth kiosk và trạng thái BLE trên web.';
+    }
+    if (!status.bleReady) {
+      return 'Kiosk ${status.scannerId} đang quét. Hãy bật Bluetooth và đứng gần kiosk ít nhất 20 giây để xác nhận hiện diện.';
+    }
+    return status.message ?? 'Kiosk đang nhận tín hiệu BLE của bạn.';
+  }
+
+  Future<void> _stopBlePresence() async {
+    setState(() => _bleBusy = true);
+    _bleStatusTimer?.cancel();
+    _bleRotationTimer?.cancel();
+    try {
+      await _bleService.stopPresence();
+      if (mounted)
+        setState(
+          () => _bleMessage = 'Đã tắt BLE. Bạn vẫn có thể chấm công bằng QR.',
+        );
+    } catch (_) {
+      if (mounted)
+        setState(
+          () => _bleMessage =
+              'Không dừng được Bluetooth. Hãy tắt Bluetooth trên thiết bị.',
+        );
+    } finally {
+      if (mounted) setState(() => _bleBusy = false);
+    }
+  }
+
+  Future<void> _checkoutBle() async {
+    setState(() => _bleBusy = true);
+    try {
+      final result = await _bleService.checkout(null);
+      _bleStatusTimer?.cancel();
+      _bleRotationTimer?.cancel();
+      if (mounted) {
+        setState(
+          () => _bleMessage =
+              result['message']?.toString() ?? 'Check-out BLE thành công.',
+        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_bleMessage!)));
+        _loadHistory();
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _bleMessage = error.toString().replaceFirst('Bad state: ', ''),
+        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_bleMessage!)));
+      }
+    } finally {
+      if (mounted) setState(() => _bleBusy = false);
+    }
+  }
+
+  Widget _buildBleControls() => Card(
+    color: Colors.white,
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bluetooth, color: AppColors.primaryOrange),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Chấm công BLE',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              if (_bleBusy)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              if (_bleService.isAdvertising)
+                OutlinedButton.icon(
+                  onPressed: _bleBusy ? null : _checkoutBle,
+                  icon: const Icon(Icons.logout, size: 18),
+                  label: const Text('Check-out'),
+                ),
+              FilledButton.tonalIcon(
+                onPressed: _bleBusy
+                    ? null
+                    : (_bleService.isAdvertising
+                          ? _stopBlePresence
+                          : _startBlePresence),
+                icon: Icon(
+                  _bleService.isAdvertising
+                      ? Icons.bluetooth_disabled
+                      : Icons.bluetooth_searching,
+                  size: 18,
+                ),
+                label: Text(
+                  _bleService.isAdvertising ? 'Tắt tự động' : 'Bật tự động',
+                ),
+              ),
+            ],
+          ),
+          if (_bleMessage != null) ...[
+            const SizedBox(height: 4),
+            Text(_bleMessage!, style: Theme.of(context).textTheme.bodySmall),
+          ],
+          const SizedBox(height: 2),
+          Text(
+            defaultTargetPlatform == TargetPlatform.android
+                ? 'Bật BLE trên điện thoại; kiosk cửa hàng phải đang quét. Giữ điện thoại gần kiosk ít nhất 20 giây. QR vẫn dùng được.'
+                : 'BLE cần kiosk cửa hàng đang quét và ứng dụng đang mở. QR vẫn dùng được.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    ),
+  );
   Future<void> _processQrCode(String codeValue) async {
     if (_isProcessing) return;
 
@@ -134,109 +409,117 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
   }
 
   Future<void> _showShiftSelectionBottomSheet(
-      VerifyQrResult verifyResult,
-      String qrPayload,
-      ) async {
+    VerifyQrResult verifyResult,
+    String qrPayload,
+  ) async {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Tiêu đề Kiosk
-              Row(
+        return SafeArea(
+          top: false,
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(ctx).height * 0.9,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryOrange.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.storefront,
-                      color: AppColors.primaryOrange,
-                      size: 24,
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          verifyResult.storeName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: AppColors.textDark,
-                          ),
+                  const SizedBox(height: 16),
+
+                  // Tiêu đề Kiosk
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryOrange.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        Text(
-                          'Mã trạm: ${verifyResult.storeCode} • QR Hợp lệ',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.green.shade700,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: const Icon(
+                          Icons.storefront,
+                          color: AppColors.primaryOrange,
+                          size: 24,
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              verifyResult.storeName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+                            Text(
+                              'Mã trạm: ${verifyResult.storeCode} • QR Hợp lệ',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
+
+                  const Text(
+                    'DANH SÁCH CA LÀM VIỆC CỦA BẠN:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
                     ),
                   ),
+                  const SizedBox(height: 10),
+
+                  if (verifyResult.eligibleShifts.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text(
+                          'Hôm nay bạn không có ca làm việc nào được phân công tại chi nhánh này.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    )
+                  else
+                    ...verifyResult.eligibleShifts.map(
+                      (shift) => _buildShiftCard(shift, qrPayload, ctx),
+                    ),
+
+                  const SizedBox(height: 12),
                 ],
               ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-
-              const Text(
-                'DANH SÁCH CA LÀM VIỆC CỦA BẠN:',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              if (verifyResult.eligibleShifts.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Center(
-                    child: Text(
-                      'Hôm nay bạn không có ca làm việc nào được phân công tại chi nhánh này.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                )
-              else
-                ...verifyResult.eligibleShifts.map(
-                      (shift) => _buildShiftCard(shift, qrPayload, ctx),
-                ),
-
-              const SizedBox(height: 12),
-            ],
+            ),
           ),
         );
       },
@@ -244,10 +527,10 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
   }
 
   Widget _buildShiftCard(
-      EligibleShiftModel shift,
-      String qrPayload,
-      BuildContext bottomSheetContext,
-      ) {
+    EligibleShiftModel shift,
+    String qrPayload,
+    BuildContext bottomSheetContext,
+  ) {
     Color statusColor = Colors.grey;
     String statusText = 'Chưa vào ca';
     if (shift.status == 'CheckedIn') {
@@ -282,14 +565,28 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                   shift.shiftName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: AppColors.textDark,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                child: Text(statusText, style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold)),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
@@ -403,11 +700,11 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
   }
 
   Future<void> _handleSubmit(
-      int? shiftAssignmentId,
-      String action,
-      String qrPayload,
-      BuildContext bottomSheetContext,
-      ) async {
+    int? shiftAssignmentId,
+    String action,
+    String qrPayload,
+    BuildContext bottomSheetContext,
+  ) async {
     Navigator.pop(bottomSheetContext); // Đóng BottomSheet
 
     showDialog(
@@ -431,8 +728,8 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
       final locationMessage = result.location == null
           ? ''
           : '\nVị trí hợp lệ: cách cửa hàng ${result.location!.distanceMeters.toStringAsFixed(1)}m '
-          '(bán kính ${result.location!.allowedRadiusMeters.toStringAsFixed(0)}m, '
-          'sai số GPS ${result.location!.accuracyMeters.toStringAsFixed(1)}m).';
+                '(bán kính ${result.location!.allowedRadiusMeters.toStringAsFixed(0)}m, '
+                'sai số GPS ${result.location!.accuracyMeters.toStringAsFixed(1)}m).';
       _showSuccessDialog(
         title: action == 'CHECK_IN'
             ? 'Check-in thành công!'
@@ -595,195 +892,210 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
         actions: _isAdminOrOwner
             ? []
             : [
-          IconButton(
-            icon: const Icon(Icons.keyboard, color: AppColors.primaryOrange),
-            tooltip: 'Nhập mã QR thủ công',
-            onPressed: _showManualInputDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.cameraswitch, color: Colors.grey),
-            tooltip: 'Đổi camera',
-            onPressed: () => _scannerController.switchCamera(),
-          ),
-        ],
+                IconButton(
+                  icon: const Icon(
+                    Icons.keyboard,
+                    color: AppColors.primaryOrange,
+                  ),
+                  tooltip: 'Nhập mã QR thủ công',
+                  onPressed: _showManualInputDialog,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.cameraswitch, color: Colors.grey),
+                  tooltip: 'Đổi camera',
+                  onPressed: () => _scannerController.switchCamera(),
+                ),
+              ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // 1. NẾU LÀ ADMIN / CHỦ CỬA HÀNG -> HIỂN THỊ MÃ QR DÀNH CHO NHÂN VIÊN QUÉT
-              if (_isAdminOrOwner) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'MÃ QR ĐIỂM DANH CỬA HÀNG',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 1. NẾU LÀ ADMIN / CHỦ CỬA HÀNG -> HIỂN THỊ MÃ QR DÀNH CHO NHÂN VIÊN QUÉT
+                if (_isAdminOrOwner) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Cho nhân viên quét mã này bằng ứng dụng để check-in / check-out',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: AppColors.primaryOrange.withValues(alpha: 0.4),
-                            width: 2,
-                          ),
-                        ),
-                        child: QrImageView(
-                          data: _adminQrData,
-                          version: QrVersions.auto,
-                          size: (MediaQuery.sizeOf(context).width - 76).clamp(120.0, 200.0).toDouble(),
-                          foregroundColor: AppColors.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.primaryOrange,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Làm mới mã sau $_qrSecondsLeft giây',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryOrange,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.primaryOrange),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onPressed: () {
-                          _generateNewAdminQrCode();
-                          _startAdminQrTimer();
-                        },
-                        icon: const Icon(
-                          Icons.refresh,
-                          size: 18,
-                          color: AppColors.primaryOrange,
-                        ),
-                        label: const Text(
-                          'Tạo mã mới ngay',
-                          style: TextStyle(
-                            color: AppColors.primaryOrange,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ]
-              // 2. NẾU LÀ NHÂN VIÊN -> HIỂN THỊ CAMERA QUÉT QR MẶC ĐỊNH
-              else ...[
-                Container(
-                  height: 280,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.primaryOrange, width: 2),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: Stack(
-                      alignment: Alignment.center,
+                      ],
+                    ),
+                    child: Column(
                       children: [
-                        MobileScanner(
-                          controller: _scannerController,
-                          onDetect: _onDetect,
-                        ),
-                        Container(
-                          width: 200,
-                          height: 200,
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: _isProcessing
-                                  ? Colors.green
-                                  : AppColors.primaryOrange,
-                              width: 3,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
+                        const Text(
+                          'MÃ QR ĐIỂM DANH CỬA HÀNG',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
                           ),
                         ),
-                        if (_isProcessing)
-                          Container(
-                            color: Colors.black54,
-                            child: const Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircularProgressIndicator(
-                                    color: AppColors.primaryOrange,
-                                  ),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    'Đang xác thực mã QR...',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Cho nhân viên quét mã này bằng ứng dụng để check-in / check-out',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppColors.primaryOrange.withValues(
+                                alpha: 0.4,
+                              ),
+                              width: 2,
+                            ),
+                          ),
+                          child: QrImageView(
+                            data: _adminQrData,
+                            version: QrVersions.auto,
+                            size: (MediaQuery.sizeOf(context).width - 76)
+                                .clamp(120.0, 200.0)
+                                .toDouble(),
+                            foregroundColor: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primaryOrange,
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Làm mới mã sau $_qrSecondsLeft giây',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primaryOrange,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                              color: AppColors.primaryOrange,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
+                          onPressed: () {
+                            _generateNewAdminQrCode();
+                            _startAdminQrTimer();
+                          },
+                          icon: const Icon(
+                            Icons.refresh,
+                            size: 18,
+                            color: AppColors.primaryOrange,
+                          ),
+                          label: const Text(
+                            'Tạo mã mới ngay',
+                            style: TextStyle(
+                              color: AppColors.primaryOrange,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Hướng camera về phía mã QR động tại Kiosk cửa hàng để chọn ca chấm công',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                ]
+                // 2. NẾU LÀ NHÂN VIÊN -> HIỂN THỊ CAMERA QUÉT QR MẶC ĐỊNH
+                else ...[
+                  _buildBleControls(),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 280,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppColors.primaryOrange,
+                        width: 2,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          MobileScanner(
+                            controller: _scannerController,
+                            onDetect: _onDetect,
+                          ),
+                          Container(
+                            width: 200,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: _isProcessing
+                                    ? Colors.green
+                                    : AppColors.primaryOrange,
+                                width: 3,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          if (_isProcessing)
+                            Container(
+                              color: Colors.black54,
+                              child: const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(
+                                      color: AppColors.primaryOrange,
+                                    ),
+                                    SizedBox(height: 12),
+                                    Text(
+                                      'Đang xác thực mã QR...',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Hướng camera về phía mã QR động tại Kiosk cửa hàng để chọn ca chấm công',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // LỊCH SỬ CHẤM CÔNG THEO CA
-              Expanded(
-                child: Column(
+                // LỊCH SỬ CHẤM CÔNG THEO CA
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
@@ -809,121 +1121,122 @@ class _DashboardQRScreenState extends State<DashboardQRScreen> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Expanded(
+                    SizedBox(
+                      height: 220,
                       child: _isLoadingHistory
                           ? const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryOrange,
-                        ),
-                      )
+                              child: CircularProgressIndicator(
+                                color: AppColors.primaryOrange,
+                              ),
+                            )
                           : _shiftHistory.isEmpty
                           ? const Center(
-                        child: Text(
-                          'Chưa có lịch sử chấm công ca nào',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      )
+                              child: Text(
+                                'Chưa có lịch sử chấm công ca nào',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            )
                           : ListView.builder(
-                        itemCount: _shiftHistory.length,
-                        itemBuilder: (context, index) {
-                          final item = _shiftHistory[index];
-                          final hasCheckOut = item.checkOutAt != null;
+                              itemCount: _shiftHistory.length,
+                              itemBuilder: (context, index) {
+                                final item = _shiftHistory[index];
+                                final hasCheckOut = item.checkOutAt != null;
 
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(
-                                    alpha: 0.03,
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.03,
+                                        ),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
                                   ),
-                                  blurRadius: 6,
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundColor:
-                                  (hasCheckOut
-                                      ? Colors.green
-                                      : Colors.blue)
-                                      .withValues(alpha: 0.1),
-                                  child: Icon(
-                                    hasCheckOut
-                                        ? Icons.check_circle
-                                        : Icons.timer,
-                                    color: hasCheckOut
-                                        ? Colors.green
-                                        : Colors.blue,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        '${item.shiftName} (${item.shiftDate})',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
+                                      CircleAvatar(
+                                        backgroundColor:
+                                            (hasCheckOut
+                                                    ? Colors.green
+                                                    : Colors.blue)
+                                                .withValues(alpha: 0.1),
+                                        child: Icon(
+                                          hasCheckOut
+                                              ? Icons.check_circle
+                                              : Icons.timer,
+                                          color: hasCheckOut
+                                              ? Colors.green
+                                              : Colors.blue,
+                                          size: 20,
                                         ),
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'Vào: ${DateFormat("HH:mm - dd/MM").format(item.checkInAt)}${item.checkOutAt != null ? " • Ra: ${DateFormat("HH:mm - dd/MM").format(item.checkOutAt!)}" : " • Đang làm việc..."}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${item.shiftName} (${item.shiftDate})',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Vào: ${DateFormat("HH:mm - dd/MM").format(item.checkInAt)}${item.checkOutAt != null ? " • Ra: ${DateFormat("HH:mm - dd/MM").format(item.checkOutAt!)}" : " • Đang làm việc..."}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              (hasCheckOut
+                                                      ? Colors.green
+                                                      : Colors.blue)
+                                                  .withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          hasCheckOut
+                                              ? '${item.actualHours ?? 0}h'
+                                              : 'Trong ca',
+                                          style: TextStyle(
+                                            color: hasCheckOut
+                                                ? Colors.green
+                                                : Colors.blue,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                    (hasCheckOut
-                                        ? Colors.green
-                                        : Colors.blue)
-                                        .withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(
-                                      6,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    hasCheckOut
-                                        ? '${item.actualHours ?? 0}h'
-                                        : 'Trong ca',
-                                    style: TextStyle(
-                                      color: hasCheckOut
-                                          ? Colors.green
-                                          : Colors.blue,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
